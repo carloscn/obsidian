@@ -4,34 +4,47 @@
     "type": "split",
     "children": [
       {
-        "id": "34d6dbf97421221e",
+        "id": "677e06317294c741",
         "type": "tabs",
         "children": [
           {
-            "id": "4e8c33ada4320484",
+            "id": "27a89108c8fd5334",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "embedded/Secure boot overview.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          },
+          {
+            "id": "7d9efaccf9705188",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "mode": "source",
                 "source": true
               }
             }
           }
-        ]
+        ],
+        "currentTab": 1
       },
       {
-        "id": "e1944a365b02fd6e",
+        "id": "b1bf3c9c9c1c8d83",
         "type": "tabs",
         "children": [
           {
-            "id": "692d6a019e2b23b8",
+            "id": "29608d164238f00d",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "embedded/Secure boot overview.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "mode": "preview",
                 "source": true
               }
@@ -87,7 +100,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "a1cb8996e5b31f73",
@@ -103,7 +117,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "embedded/Secure boot overview.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -120,7 +134,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "embedded/Secure boot overview.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -143,7 +157,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "embedded/Secure boot overview.md"
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md"
               }
             }
           }
@@ -154,12 +168,13 @@
     "width": 300,
     "collapsed": true
   },
-  "active": "4e8c33ada4320484",
+  "active": "7d9efaccf9705188",
   "lastOpenFiles": [
-    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
-    "embedded/Secure boot overview.md",
-    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+    "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
+    "embedded/[Embedded] ZYNQ-Secure Storage.md",
     "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
+    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
     "security/3.1_Security_对称密钥算法之AES.md",
     "security/3.0_Security_对称密钥算法加解密.md",
     "security/2.0_Security_随机数（伪随机数）.md",

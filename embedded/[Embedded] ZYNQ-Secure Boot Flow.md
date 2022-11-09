@@ -1,4 +1,4 @@
-# Secure boot overview
+# [Embedded] ZYNQ-Secure Boot Flow
 
 ZYNQ的secure boot方案提供了三大特性的验证:
 * 保密性
@@ -16,6 +16,16 @@ ZYNQ在secure boot的支持上提供了：
 * Hardware Root of Trust with key revocation（讨论ROT作为启动根密钥）
 * 分区加密：Partition encryption with differential power analysis (DPA) countermeasures（换密钥）
 * 黑秘钥供应(Black Key Provisioning) 使用PUF作为KEK 
+
+对于一个启动过程可以总结如下：
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200265017-38b76b46-b8a5-4f51-a8f3-5ea6c7750db2.png" width="100%" /></div> 
+
+**Final Boot Image with Secure Attributes**：
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200265244-b65bb5bf-764b-4eb9-bc0b-f48d8ddbcb22.png" width="100%" /></div> 
+
+注意， **TF-A和uboot和linux不能加密**！
 
 # 1. Secure Boot 所涉及的安全机制
 
@@ -166,11 +176,26 @@ Note，根据zynq的设计，每个分区都可以使用不同的对称加密的
 
 ### 2.1.2 AES key管理
 
+CSU ROM会访问AES的Key进行管理。这些Key的源头可以是：
+* BBRAM （256-bit的RAM）
+* Boot Image 
+* eFUSE
+* Family
+* Operational
+* PUF KEK (Black Key)
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200460986-47154348-76cf-4954-9762-bf275924efb2.png" width="90%" /></div>
+
+这些key的编写方式：
+
+![image](https://user-images.githubusercontent.com/16836611/200461951-8064b1ae-4e54-417d-8586-603f4b4a4eef.png)
+
+
 #### Operational Key
 
 关于Operational key的密码学意义可以参考[^3]，简言之就是一个份很私密的密钥因为业务原因不得不保存在host端，这就存在一个显著的安全风险，尤其是跨团队的操作，导致这个密钥被copy了很多份。Operational Key提供了保护私密的密钥途径，ZYNQ对于两个团队之间传输私密的OPT Key产生过程，以防止密钥泄露，可以参考[^4]。
 
-bootgen tool可以创建一个加密的安全header，其中包含用户指定的opt_key，以及启动此功能时第一个块IV。结果就是，存储在eFUSE或BBRAM的密钥长度是384位（AES-GCM需要256，剩余128密钥位就是opt_key加成的结果），**这种方式可以低于侧[信道攻击](https://zh.wikipedia.org/wiki/%E6%97%81%E8%B7%AF%E6%94%BB%E5%87%BB)**。
+bootgen tool可以创建一个加密的安全header，其中包含用户指定的opt_key，以及启动此功能时第一个块IV。结果就是，存储在eFUSE或BBRAM的密钥长度是384位（AES-GCM需要256，剩余128密钥位就是opt_key加成的结果），**这种方式可以防止[侧信道攻击](https://zh.wikipedia.org/wiki/%E6%97%81%E8%B7%AF%E6%94%BB%E5%87%BB)**。
 
 对于一个image，使用opt_key的一个BIF示例：
 ```
@@ -194,7 +219,8 @@ image_v:
 
 `bootgen -arch zynqmp -image ./image.bif -w -o u-boot-enc.bin -p xc7z020clg484`
 
-注意，如果指定elf文件，会check elf文件头。
+注意，**如果指定elf文件，bootgen会check elf文件头**。
+注意， **key0是nsbl的key，如果有多个分区，多个分区的aes key文件里面的key0都是一样的，如果多个分区的aes key文件中的key0不一致，bootgen tool会拒绝加密。**
 
 此时就会生成：
 <div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora20221106134644.png" width="90%" /></div>
@@ -305,6 +331,8 @@ IV 2         EDE114061B4EC91BD65F6564;
 
 Gray Key（模糊Key）这个Key的业务逻辑是，允许一批设备使用相同的Family Key加密red key。比如我们经常说的Model Key，这个密钥可以**存储在eFUSE或在image的boot header中(没有BBRAM)**。对于希望以模糊形式存储加密密钥的用户，可以使用Gray密钥作为加密密钥对红色密钥进行加密。ZynqMP将解密模糊密钥以获得实际的红色密钥。请注意，系列密钥在ZynqMP SoC系列中的所有设备上都是相同的。该解决方案允许用户将混淆的密钥分发给合同制造商，而不泄露实际的加密密钥。
 
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200461448-a5fa4f01-8253-4b7b-b9d2-ffc3d7227bd3.png" width="100%" /></div>
+
 ```
 image_v:
 {
@@ -355,6 +383,8 @@ bootgen -arch zynqmp -image all.bif -generate_keys obfuscatedkey
 
 black key解决方案是对安全性能的增强，属于KEK（Key encryption Key），而且这种Key并不是使用算法或者软件进行加密，而是使用PUF这种硬件期间。PUF会加扰写在eFUSE上的密钥。黑密钥可以**写入eFUSE或者a part of the authenticated boot header**。
 
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200461676-21cad573-fa49-4a70-8fb5-00c4d799703c.png" width="100%" /></div>
+
 ```
 image_v:
 { 
@@ -384,6 +414,8 @@ image_v:
 关于PUF的一些参数如上图所示。
 
 **note**: puf_file是一个输入文件，关于这个输入文件，需要参考[External Secure Storage Using the PUF (XAPP1333)](https://docs.xilinx.com/r/en-US/xapp1333-external-storage-puf/External-Secure-Storage-Using-the-PUF-Application-Note)
+
+关于PUF和eFUSE的安全功能，详细在Secure Storage中展开讨论，参考：[ [Embedded] ZYNQ-Secure Storage](https://github.com/carloscn/blog/issues/149) 。
 
 #### 多个加密密钥文件
 
@@ -420,6 +452,399 @@ all:
 -   Partition hello.elf.1 is then encrypted using keys from `test2.1.nky`.
 -   Partition hello.elf.2 is encrypted using keys from `test2.2.nky`.
 
+### 1.2.3 use case（bbram-red key）[^2]
+
+测试GCM-AES加密，并不是bh_auth（boot header）模式可以跳过eFUSE或者BBRAM的检查，我们唯一的方法就是烧录AES key到BBRAM进行测，eFUSE虽然有TEST模式可以编程，但很容易由于操作错误导致eFUSE熔断，因此我们在没有把握的情况下不对eFUSE做编程操作。
+
+#### 生成aes key
+
+以2.2.7 为例，在上面增加aes加密，会生成fsbl.nky文件，密钥读取从bbram_red_key中：
+
+```
+the_ROM_image:
+{
+        [pskfile]psk0.pem
+        [sskfile]ssk0.pem
+        [auth_params]spk_id = 0; ppk_select = 0
+        [keysrc_encryption] bbram_red_key
+        [fsbl_config] a53_x64, bh_auth_enable
+        [bootloader, destination_cpu=a53-0, authentication = rsa, encryption = aes, aeskeyfile = fsbl.nky] zynqmp_fsbl.elf
+        [pmufw_image] pmufw.elf
+        [destination_device=pl, authentication = rsa, encryption = aes, aeskeyfile = bitstream.nky] project_1.bit
+        [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] bl31.elf
+        [destination_cpu=a53-0, load=0x00100000, authentication = rsa] system.dtb
+        [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] u-boot.elf
+}
+```
+
+输出的 fsbl.nky文件为：
+
+```
+Device       xc7z020clg484;
+
+Key 0        081A9BCAD0A8FDE197CB7840171AF0666F0689D3D047ADDFAB8F3EF0492149D0;
+IV 0         631179B14B3D7D2E1E2D4843;
+
+Key 1        C6B3FD89536D20568B7198ED2F4F5FE540DEC84959292EFABD8DA10474067A3C;
+IV 1         9FC260D694534E6AE65C941F;
+
+```
+
+记录key0: `081A9BCAD0A8FDE197CB7840171AF0666F0689D3D047ADDFAB8F3EF0492149D0`
+
+#### 修改SoC的BBRAM中的key
+
+https://docs.xilinx.com/v/u/en-US/xapp1319-zynq-usp-prog-nvm 该文档有描述，需要用到vitis这个软件。
+
+把我们的key粘进去就好了，然后使用SD卡运行这个BOOT.BIN，这个程序就修改了BBRAM里面的red key：
+
+![image](https://user-images.githubusercontent.com/16836611/200285790-14f66f4e-f3f9-4d7b-86a6-f5710910d5c9.png)
+
+换成我们刚才编译的带Linux和ATF的BOOT.BIN，就可以启动了。注意，如果Key验证失败，没有任何Log输出。
+
+### 1.2.4 use case（opt key {DPA protections} ）[^2]
+
+在[fsbl_config]中配置`opt_key`即可使能Operational Key。如果基于上面生产的密钥，我们需要做一些操作：
+1. 备份上一个里面key0的值也就是red key的值；
+2. 使用新的bif文件（如下），产生新的aes密钥nky文件；
+3. 修改产生的nky文件（把所有的nky文件的key0 全部改为备份的key0的值）；
+4. 重新运行bootgen产生一份新的BOOT.BIN。
+
+```
+the_ROM_image:
+{
+        [pskfile]psk0.pem
+        [sskfile]ssk0.pem
+        [auth_params]spk_id = 0; ppk_select = 0
+        [keysrc_encryption] bbram_red_key
+        [fsbl_config] a53_x64, bh_auth_enable, opt_key
+        [bootloader, destination_cpu=a53-0, authentication = rsa, encryption = aes, aeskeyfile = fsbl.nky] zynqmp_fsbl.elf
+        [pmufw_image] pmufw.elf
+        [destination_device=pl, authentication = rsa, encryption = aes, aeskeyfile = bitstream.nky] project_1.bit
+        [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] bl31.elf
+        [destination_cpu=a53-0, load=0x00100000, authentication = rsa] system.dtb
+        [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] u-boot.elf
+}
+
+```
+
+### 1.2.5 use case（Rolling Key）[^2]
+
+使用Rolling Key，加入blocks，例如：`blocks=4096,1024(3),512(*)`，
+
+```C
+{
+        [pskfile]psk0.pem
+        [sskfile]ssk0.pem
+        [auth_params]spk_id = 0; ppk_select = 0
+        [keysrc_encryption] bbram_red_key
+        [fsbl_config] a53_x64, bh_auth_enable, opt_key
+        [bootloader, destination_cpu=a53-0, authentication = rsa, encryption = aes, aeskeyfile = fsbl_rolling_key.nky, blocks = 1024(2);2048;4096(2);8192(2);4096;2048;1024] zynqmp_fsbl.elf
+        [pmufw_image] pmufw.elf
+        [destination_device=pl, authentication = rsa, encryption = aes, aeskeyfile = bitstream_rolling_key.nky, blocks = 1024(2);2048;4096(2);8192(2);4096;2048;1024] project_1.bit
+        [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] bl31.elf
+        [destination_cpu=a53-0, load=0x00100000, authentication = rsa] system.dtb
+        [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] u-boot.elf
+}
+
+```
+
+同样，我们需要把生成的key0 改为 BBRAM Red Key的内容。
+
+
+## 2.2 image认证
+
+image的认证使用的RSA算法，RSA则需要用Secret Key/Private Key做签名，需要用Public Key做验签。RSA的公钥是不需要做保护的，因此不需要特殊的保存。RSA也可以用用做加密和解密分区。
+
+Zynq ® UltraScale+TM MPSoC 使用RSA-4096作为签名验签算法，这就是意味着主引导密钥和辅助引导密钥的key的长度是4096-bit。
+
+>附：openssl产生RSA-4096私钥的命令如下：
+>`openssl genrsa -out privkey.pem 4096`
+>
+>附：从私钥生成公钥：
+>`openssl rsa -in privkey.pem -out pubkey.pem -pubout -outform PEM`
+
+也可以使用bootgen产生密钥
+
+>```
+>generate_pem:
+>{
+>	[pskfile] psk0.pem
+>	[sskfile] ssk0.pem
+>}
+>```
+>使用命令：`bootgen -generate_keys pem -arch zynqmp -image generate_pem.bif`
+
+Zynq ® UltraScale+TM MPSoC 使用[Keccak SHA-3](https://zh.wikipedia.org/zh-hk/SHA-3)作为hash运算主算法。
+
+RSA的公钥的hash值需要存储在eFUSE/OTP上面。**Xilinx**的SoC设备一共有四个公钥私钥，一对公钥私钥用于认证主引导，另一对公钥私钥用于认证辅助引导。在Xilinx的SoC里面用下面的符号定义主引导和辅助引导的四种key：
+
+* **PPK = Primary Public Key**
+* **PSK = Primary Secret Key**
+* **SPK = Secondary Public Key**
+* **SSK = Secondary Secret Key**
+
+PPK PSK SPK SSK可以通过bootgen tool产生：
+* 提供 PSK + SSK。 SPK 签名是使用这两个输入即时计算的。 
+* 提供 PPK + SSK + SPK **签名作为输入**。这用于 PSK 不知道。
+
+简言之，要么提供两个私钥，缺私钥需要使用公钥+签名结果才可以。
+
+注意，PPK的hash值会被存储到eFUSE上面，这个hash值会和存储在FSBL的boot image中的比较。hash值可以通过vitis提供的独立的工具烧写到eFUSE的内存中。
+
+BootGen命令，结果会产生两个私钥：
+
+```
+image:
+{
+	[pskfile]primarykey.pem
+	[sskfile]secondarykey.pem
+	[bootloader,authentication=rsa] fsbl.elf
+	[authentication=rsa]uboot.elf
+}
+```
+
+### 2.2.1 签名过程
+
+bootgen tool使用Secret Key进行签名。签名的过程如下：
+
+* 1. 两个公钥（PPK和SPK）存储到Authentication Certificate（AC）中；
+* 2. （辅助引导的公钥是要被签名的）被签名的SPK（辅助引导公钥）使用PSK（主引导私钥）来获取SPK（辅助引导公钥）的签名，并存储为AC的一部分；
+* 3. 分区被SSK（辅助引导私钥）签名来得到分区的签名，放置在AC中；
+* 4. AC根据不同的设备设计放置在每个分区上；
+* 5. PPK（主引导公钥）计算hash存储在OTP上（eFUSE）。
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200239277-5d4311b8-2ac5-4ed6-bfcb-35fa5d947746.png" width="90%" /></div>
+
+主引导的密钥对一部分存入eFUSE，作为辅助引导凭证的验签。而辅助引导的密钥才是真的对分区进行验证。这样才完成加签链。
+
+* eFUSE的公钥hash用来验主引导的公钥没有被修改；
+* 主引导的私钥用来给辅助引导的公钥加签；
+* 辅助引导的私钥用来给分区加签；
+
+密钥解释如下：
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200239930-4c753131-3427-4aff-80fa-2b620551cf0e.png" width="90%" /></div>
+
+### 2.2.2 验签过程
+
+认证的过程可以分为：
+* 对密钥的认证（确认密钥可信），包含hash验证
+* 对分区的认真（确认分区可信），包含hash验证
+
+一个分区接着一个分区进行验证：
+
+```
+BootROM
+   |  verify
+   |---------> FSBL
+                |   verify
+                |-----------> uboot
+				                |   verify
+					            |--------------> others
+```
+
+#### A. 验证PPK（主引导公钥）
+
+第一步需要先认证PPK主引导公钥是否可信，这一步通过和eFUSE中的hash值进行对比。因此步骤是：
+* bootgen阶段PPK写入了到AC header中，从AC header中读出PPK；
+* 对该PPK进行hash运算hash(PPK)；
+* 从eFUSE中公钥PPK hash区域读出PPK hash；
+* 对比两个hash值是否一致，一致则主引导的公钥没有问题，可以用该公钥认证二级引导的签名。
+
+#### B. 验证SPK（辅助引导公钥）
+
+第二步需要认证SPK辅助引导是否可信，这一步需要读取AC header中的SPK原件，还需要读取AC header中的对应的SPK签名：
+* 从AC header中读取SPK原件，并计算其hash值hash(SPK)；
+* 从AC header中读取读取SPK的签名，并使用A步骤中读取的主引导的PPK，获取到SPK的hash值；
+* 比较第一步和第二步的hash值，一致则辅助引导公钥没有问题，可以用该公钥认证分区的的签名。
+
+#### C. 验证分区数据
+
+最后一步就是验证分区的数据，需要用到步骤B的辅助引导的公钥：
+* 从boot image中读取出分区的数据；
+* 对数据进行hash运算，hash(partition data)；
+* 使用步骤B的公钥SPK，验签存在AC header中的分区的签名，获取到分区的hash值；
+* 对比两个hash值，如果一致，这个分区就验签通过；
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200242400-11b52228-426a-4c4a-aa77-7e03aaa9206a.png" width="90%" /></div>
+
+### 2.2.3 认证示例
+
+### Example 1:
+
+启动分区认证用于一组：
+
+```
+image_v:
+{
+	[fsbl_config] bh_auth_enable
+	[auth_params] ppk_select=0; spk_id=0x00000000
+	[pskfile] primary_4096.pem
+	[sskfile] secondary_4096.pem
+	[pmufw_image] pmufw.elf
+	[bootloader, authentication=rsa, destination_cpu=a53-0] fsbl.elf
+	[authenication=rsa, destination_cpu=r5-0] hello.elf
+}
+```
+
+### Example 2:
+
+启动分区认证用于分开的辅助引导证书对于每一个分区，使用`sskfile = secondary_p2.pem`在分区属性内指定：
+```
+image:
+{
+	[auth_params] ppk_select=1
+	[pskfile] primary_4096.pem
+	[sskfile] secondary_4096.pem
+	
+	// FSBL (Partition-0)
+	[
+	  bootloader,
+	  destination_cpu = a53-0,
+	  authentication = rsa,
+	  spk_id = 0x01,
+	  sskfile = secondary_p1.pem
+	] fsbla53.elf
+
+	// ATF (Partition-1)
+	[
+	  destination_cpu = a53-0,
+	  authentication = rsa,
+	  exception_level = el-3,
+	  trustzone = secure,
+	  spk_id = 0x02,
+	  sskfile = secondary_p2.pem
+	] bl31.elf
+	
+	// UBOOT (Partition-2)
+	[
+	  destination_cpu = a53-0, 
+	  authentication = rsa,
+	  exception_level = el-2,
+	  spk_id = 0x03,
+	  sskfile = secondary_p3.pem
+	] u-boot.elf
+}
+```
+
+### 2.2.4 bitstream的特殊处理
+
+bitstream是一个十分特殊的文件，因此认证和其他分区不同。FSBL是会被BootROM加载到OCM上的，因此认证和解密都是在设备的内部。但是对于比较庞大的bitstream文件，它需要借助外部内存才能够认证和使用。从安全角度来看，这就带来了安全挑战。为了应对这个问题，bootgen tool把bitstream按照8MB大小进行切分。当同时启用身份验证和加密时，首先在比特流上进行加密，然后Bootgen将加密数据划分为块，并为每个块放置身份验证证书。
+
+Bitstream Authentication Using External Memory：
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200247712-2f61f80e-b321-4b35-8bed-e3dc17ea2c4e.png" width="35%" /></div> 
+
+### 2.2.5 RSA Key Revocation
+
+ZYNQ提供了撤销某个分区的密钥（辅助引导），而不连带撤销所有分区的能力。这个功能的启动，需要使用USER_FUSE0-USER_FUSE7在spk_select上面。下面的例子表示，
+```
+the_ROM_image:
+{
+	[auth_params]ppk_select = 0
+	[pskfile]psk.pem
+	[sskfile]ssk1.pem
+	[
+	  bootloader,
+	  authentication = rsa,
+	  spk_select = spk-efuse,
+	  spk_id = 0x8,
+	  sskfile = ssk2.pem
+	] zynqmp_fsbl.elf
+	[
+	  destination_cpu = a53-0,
+	  authentication = rsa,
+	  spk_select = user-efuse,
+	  spk_id = 0x100,
+	  sskfile = ssk3.pem
+	] application.elf
+	[
+	  destination_cpu = a53-0,
+	  authentication = rsa,
+	  spk_select = user-efuse,
+	  spk_id = 0x8,
+	  sskfile = ssk4.pem
+	] application2.elf
+} 
+```
+-   `spk_select = spk-efuse` indicates that `spk_id` eFUSE will be used for that partition.
+-   `spk_select = user-efuse` indicates that user eFUSE will be used for that partition.
+
+### 2.2.6 为eFUSE生成PPK hash
+
+bootgen可以产生PPK hash用于存储到eFUSE上。这个步骤仅仅是用于真实使用eFUSE的模式和bootheader模式。efuseppksha.txt生成的值可以写入到eFUSA中。 如何编写eFUSE，可以查看 https://docs.xilinx.com/v/u/en-US/xapp1319-zynq-usp-prog-nvm
+
+The following is a sample BIF file, generate_hash_ppk.bif.
+```
+generate_hash_ppk:
+{
+	[pskfile] psk0.pem
+	[sskfile] ssk0.pem
+	[bootloader, destination_cpu=a53-0, authentication=rsa] fsbl_a53.elf
+}
+```
+
+运行：
+```
+bootgen –image generate_hash_ppk.bif –arch zynqmp –w –o /
+test.bin –efuseppkbits efuseppksha.txt
+```
+
+生成：
+`3B33F1F24B92F42F87F2133993DF3284DB68797DFEBFEBC3FB46A7D358AFF41C9A532424EE0F233D5B4159B2411BA13B0`
+
+### 2.2.7 use case（boot-header模式）[^2]
+
+在调试阶段，我们可以使用boot-header模式来跳过eFUSE的检测PPK hash（**注意不能跳过image加密**）。这种模式对于测试和调试很有用，因为它不需要对 eFUSE 进行编程。通过对 RSA_EN eFUSE 进行编程，可以为设备永久禁用此模式，这会强制使用 eFUSE 检查进行 RSA 身份验证。注意，**项目release严禁使用该模式**。
+
+加入 `bh_auth_enable` 属性在 `[fsbl_config]` bif文件：
+
+```
+the_ROM_image:
+{
+        [pskfile]psk0.pem
+        [sskfile]ssk0.pem
+        [auth_params]spk_id = 0; ppk_select = 0
+        [fsbl_config]a53_x64, bh_auth_enable
+        [bootloader, destination_cpu=a53-0, authentication = rsa] zynqmp_fsbl.elf
+        [pmufw_image] pmufw.elf
+        [destination_device=pl, authentication = rsa] project_1.bit
+        [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] bl31.elf
+        [destination_cpu=a53-0, load=0x00100000, authentication = rsa] system.dtb
+        [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] u-boot.elf
+}
+```
+
+使用bootgen：
+`bootgen -arch zynqmp -image ./image.bif -w -o BOOT.BIN -p xc7z020clg484`
+
+启动之后，看不出在哪里验签了，log没有任何输出。
+
+## 2.4 使用HSM模式
+
+
+
+# 3. Secure boot Low-Level Design
+
+关于secure boot的low level design（具体设计细节），最重要的就是对于数据的打包，包含：
+
+-   [Zynq UltraScale+ MPSoC Boot Header](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/l2snJS_qaxPeKK7vKWxYUQ), which also has the [Zynq UltraScale+ MPSoC Boot Header Attribute Bits](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/eHUlKq9vPnSdEdZA0ZkanQ).
+-   [Zynq UltraScale+ MPSoC Register Initialization Table](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/MY_S2pKibnIoEdasYIVnTA)
+-   [Zynq UltraScale+ MPSoC PUF Helper Data](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/c7DRvJbQbvbk95SvBhXpLw)
+-   [Zynq UltraScale+ MPSoC Image Header Table](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/gPyWBv8DgrUocukiqjCbEg)
+-   [Zynq UltraScale+ MPSoC Image Header](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/VjFvwl3qO8Yx~Tw3f4IOqw)
+-   [Zynq UltraScale+ MPSoC Authentication Certificates](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/wb4H2cJM5P3DfbaKiR_2JA)
+-   [Zynq UltraScale+ MPSoC Partition Header](https://docs.xilinx.com/r/_afoYJik6HWVwQ6s6eYOcg/qk~gXRpTjidqsCXL2i~O3g)
+
+
+boot image整体的设计如图所示：
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200253104-7787ab57-2564-4932-aa12-1864ba37f692.png" width="90%" /></div> 
+
+一个完整的BOOTBIN的分布如下：
+
+<div align='center'><img src="https://user-images.githubusercontent.com/16836611/200253559-8ce5c510-75ad-4dce-a94a-2b9871e74788.png" width="100%" /></div> 
+
 
 
 # Ref
@@ -428,4 +853,5 @@ all:
 [^3]:[Operational keys](https://www.ibm.com/docs/en/zos/2.1.0?topic=tab-operational-keys)
 [^4]:[Using-Op-Key-to-Protect-the-Device-Key-in-a-Development-Environment](https://docs.xilinx.com/r/en-US/ug1283-bootgen-user-guide/Using-Op-Key-to-Protect-the-Device-Key-in-a-Development-Environment)
 [^5]:[Zynq+Ultrascale+MPSoC+Security+Features](https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841708/Zynq+Ultrascale+MPSoC+Security+Features#ZynqUltrascale%2BMPSoCSecurityFeatures-ObfuscatedKey)
+
 
