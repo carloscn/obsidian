@@ -110,6 +110,10 @@ FPGA在这里充当的角色是对Red Key进行加解密验证。
 
 防重放攻击的设计体现在，Alice对于Red Key的输入不光是有 Red Key和IV这些成分，除此之外还有ID放入到OTP的256bits长度的User Data里面。Alice产生Key之后，可以增加ID，在解密的时候，除了要验证解密的信息的GCM的TAG之外，还要对比解析出来的ID信息，和OTP/eFUSE上的ID进行对比。这样就可以有效的抵御重放攻击。
 
+id在bootgen的时候通过以下方法指定：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211110955470.png" width="100%" /></div> 
+
 #### 功率分析攻击（DPA）
 
 PUF Key是直接加载到SoC内部的加密引擎中的。为了防止PUF Key被分析出来，ZYNQ给了两个建议：
@@ -249,11 +253,182 @@ PUF使用大约4Kb的辅助数据来帮助PUF在正确的寿命、规定的工�
 # 3. Example
 
 ## 3.1 Provisioning
+
+Provisioning是所有安全机制的基础。其目的是把根凭证写入eFUSE或者其他存储密钥的敏感介质。包含RSA的根密钥，也包含GCM的Key。
+
+在ZYNQ中我们需要Provisioning的内容：
+* PPK HASH （主引导Primary Public Key Hash）
+* GCM-AES Key （用于image解密）
+* PSK ID (写入key的id信息，作为PUF解密时候比对，参考'防重放攻击'一节)
+
+在调试阶段为了不伤害eFUSE。对于PPK HASH，zynq提供了bh_boot模式，即可以绕过eFUSE的PPK HASH检测，直接使用AC中的hash值。
+
+同样，为了不伤害eFUSE。对于GCM-AES key，我们可以不使用eFUSE，而把Key烧录到BBRAM中。
+
+**在调试阶段，推荐配置为**：
+* **ppk hash**，对于验证，使用bh_boot（不需要包含到Provisioning过程中）
+* **gcm aes key**，对于验证，使用bbram （需要包含到Provisioning过程中）
+* id 
+* **ID**，对于验证，在bootgen阶段选择`spk_id = 0`，不需要包含到Provisioning中。
+
+**在产品阶段，必须配置为**： ppk hash 和 gcm aes key都需要在eFUSE中。
+
+我们可以把完整的Provisioning过程总结为：
+* 手动产生两对RSA密钥，产生gcm-aes-key；
+* 使能PUF eFUSE的配置；
+* 使用写入寄存器的方法写入eFUSE。
+
+**可以通过JTAG烧录eFUSE（这种方法数据操作互动型，具备一定的危险性，eFUSE烧录不可撤销），因此建议使用配置寄存器的方法烧录eFUSE**。
+
 ### 3.1.1 Gen Key
+
+密钥生成主要是需要以下材料：
+* AES Key Generation
+	* 输出nky文件（包含key和iv）
+* RSA Asymmetric Key Generation
+	* 输出1：psk0.pem
+	* 输出2：ssk0.pem
+* Generate SHA3 of Public RSA Asymmetric Key
+	* 输出是：sha3.txt
+
 ### 3.1.2 PUF eFUSE config
+
+PUF eFUSE的配置需要使用Vitis建立AP的工程，使用ZYNQ上面的AP来完成PUF的配置。非常重要的提示：**这一步会修改eFUSE上面的内容**！
+
+需要配置的项目是：
+* XSK_PUF_INFO_ON_UART
+* XSK_PUF_PROGRAM_EFUSE
+* XSK_PUF_PROGRAM_SECUREBITS 
+* XSK_PUF_SYN_WRLK
+* XSK_PUF_AES_KEY
+* XSK_PUF_IV
+
+`XSK_PUF_AES_KEY`是用户指定的，而且这个`XSK_PUF_IV`和AES Key Generation中的IV不相关。这个IV是用于PUF KEK的red key加密。
+
 ### 3.1.3 RSA eFUSE config
+这一步是配置RSA相关的信息到eFUSE上面，非常重要的提示：**这一步会修改eFUSE上面的内容**！
+
+* XSK_EFUSEPS_RSA_ENABLE
+* XSK_EFUSEPS_PPK0_WR_LOCK
+* XSK_EFUSEPS_WRITE_PPK0_HASH
+* XSK_EFUSEPS_PPK0_HASH
 
 ## 3.2 PUF Enc/Dec demo
+
+完成上面PUF的注册，我们假定eFUSE和PUF的配置已经OK了，现在我们需要编写AP的固件（baremental程序），来使用PUF的加密和解密功能。
+
+### 加密
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211111334247.png" width="90%" /></div> 
+
+对于一个PUF加密过程的程序：
+```C
+void puf_encrypt(u8 *Iv, u8 *Dst, u8 *Src, u32 Size) {
+
+	XCsuDma_Config *Config;
+	XCsuDma_Configure ConfigurValues = {0};
+
+    /* Configure PUF configuration 0 and configure the shutter. */
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CFG0,
+                    XSK_ZYNQMP_CSU_PUF_CFG0_DEFAULT);
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_SHUT,
+                    XSK_ZYNQMP_CSU_PUF_SHUT_DEFAULT);
+
+
+	// Spin up the PUF and connect the key to the AES engine
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CMD,
+                    XSK_ZYNQMP_PUF_REGENERATION);
+
+    /* Wait for the PUF regeneration to complete. */
+	usleep(PUF_REGEN_TIME_US);
+
+	/* Initialize & configure the DMA */
+	Config = XCsuDma_LookupConfig(XSK_CSUDMA_DEVICE_ID);
+	XCsuDma_CfgInitialize(&CsuDma, Config, Config->BaseAddress);
+
+	/* Initialize AES engine */
+	XSecure_AesInitialize(&AesInstance, &CsuDma, XSK_PUF_DEVICE_KEY, (u32 *) Iv, NULL);
+
+	/* Set the data endianess for IV */
+	XCsuDma_GetConfig(&CsuDma, XCSUDMA_SRC_CHANNEL,
+				&ConfigurValues);
+	ConfigurValues.EndianType = 1U;
+	XCsuDma_SetConfig(&CsuDma, XCSUDMA_SRC_CHANNEL,
+					&ConfigurValues);
+
+	/* Enable CSU DMA Dst channel for byte swapping.*/
+	XCsuDma_GetConfig(&CsuDma, XCSUDMA_DST_CHANNEL,
+			&ConfigurValues);
+	ConfigurValues.EndianType = 1U;
+	XCsuDma_SetConfig(&CsuDma, XCSUDMA_DST_CHANNEL,
+			&ConfigurValues);
+
+	/* Request to encrypt the AES key using PUF Key	 */
+	XSecure_AesEncryptData(&AesInstance, (u8 *) Dst, (u8 *) Src, Size);
+
+   /* Clear the PUF key. */
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CMD,
+                    XSK_ZYNQMP_PUF_RESET);
+}
+```
+
+### 解密
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211111338407.png" width="90%" /></div> 
+
+```C
+s32 puf_decrypt(u8 *Iv, u8 *Dst, u8 *Src, u32 Size, u8 *GcmTagPtr) {
+	s32 Status;
+
+	XCsuDma_Config *Config;
+	XCsuDma_Configure ConfigurValues = {0};
+
+   /* Configure PUF configuration 0 and configure the shutter. */
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CFG0,
+                    XSK_ZYNQMP_CSU_PUF_CFG0_DEFAULT);
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_SHUT,
+                    XSK_ZYNQMP_CSU_PUF_SHUT_DEFAULT);
+
+	// Spin up the PUF and connect the key to the AES engine
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CMD,
+                    XSK_ZYNQMP_PUF_REGENERATION);
+
+   /* Wait for the PUF regeneration to complete. */
+	usleep(PUF_REGEN_TIME_US);
+
+	/* Initialize & configure the DMA */
+	Config = XCsuDma_LookupConfig(XSK_CSUDMA_DEVICE_ID);
+	XCsuDma_CfgInitialize(&CsuDma, Config, Config->BaseAddress);
+
+	/* Initialize AES engine */
+	XSecure_AesInitialize(&AesInstance, &CsuDma, XSK_PUF_DEVICE_KEY, (u32 *) Iv, NULL);
+
+	/* Set the data endianess for IV */
+	XCsuDma_GetConfig(&CsuDma, XCSUDMA_SRC_CHANNEL,
+				&ConfigurValues);
+	ConfigurValues.EndianType = 1U;
+	XCsuDma_SetConfig(&CsuDma, XCSUDMA_SRC_CHANNEL,
+					&ConfigurValues);
+
+	/* Enable CSU DMA Dst channel for byte swapping.*/
+	XCsuDma_GetConfig(&CsuDma, XCSUDMA_DST_CHANNEL,
+			&ConfigurValues);
+	ConfigurValues.EndianType = 1U;
+	XCsuDma_SetConfig(&CsuDma, XCSUDMA_DST_CHANNEL,
+			&ConfigurValues);
+
+	/* Request to decrypt the AES key using PUF Key	 */
+	Status = XSecure_AesDecryptData(&AesInstance, (u8 *) Dst, (u8 *) Src, Size,
+                                   (u8 *) GcmTagPtr);
+
+   /* Clear the PUF key. */
+	XilSKey_WriteReg(XSK_ZYNQMP_CSU_BASEADDR, XSK_ZYNQMP_CSU_PUF_CMD,
+                    XSK_ZYNQMP_PUF_RESET);
+
+   return Status;
+}
+
+```
 
 # Ref
 [^1]:[External Secure Storage Using the PUF Application Note](https://docs.xilinx.com/r/en-US/xapp1333-external-storage-puf/External-Secure-Storage-Using-the-PUF-Application-Note)

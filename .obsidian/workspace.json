@@ -4,34 +4,47 @@
     "type": "split",
     "children": [
       {
-        "id": "46a3bfee32f5fb51",
+        "id": "3c3150eb43a37899",
         "type": "tabs",
         "children": [
           {
-            "id": "59cb2906b2ab4042",
+            "id": "7b93fcafedf7dfd3",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+                "file": "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          },
+          {
+            "id": "010756bdd86f0ee9",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
                 "mode": "source",
                 "source": true
               }
             }
           }
-        ]
+        ],
+        "currentTab": 1
       },
       {
-        "id": "524cc1812366f65b",
+        "id": "72da2257aeb2ade2",
         "type": "tabs",
         "children": [
           {
-            "id": "c64efe08185ece40",
+            "id": "0e31bb406bbd306e",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
                 "mode": "preview",
                 "source": true
               }
@@ -103,7 +116,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -120,7 +133,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -143,7 +156,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md"
+                "file": "embedded/[embedded] NXP-LS1046的启动流程.md"
               }
             }
           }
@@ -154,16 +167,17 @@
     "width": 300,
     "collapsed": true
   },
-  "active": "c64efe08185ece40",
+  "active": "010756bdd86f0ee9",
   "lastOpenFiles": [
+    "embedded/[Embedded] ZYNQ-Secure Storage.md",
+    "embedded/[embedded] NXP-LS1046的启动流程.md",
+    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+    "security/3.3_Security_对称密钥算法之AEAD.md",
+    "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
+    "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
     "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
     "embedded/Secure boot overview.md",
-    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
-    "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
     "security/3.1_Security_对称密钥算法之AES.md",
-    "security/3.0_Security_对称密钥算法加解密.md",
-    "security/2.0_Security_随机数（伪随机数）.md",
-    "linux_kernel/0x21_LinuxKernel_内核活动（一）之系统调用.md",
-    "README.md"
+    "security/3.0_Security_对称密钥算法加解密.md"
   ]
 }
