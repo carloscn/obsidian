@@ -1,4 +1,4 @@
-# [embedded] NXP-LS1046的启动流程
+# [embedded] NXP-LS1046的image操作
 
 # 1. Walk Thought
 
@@ -91,16 +91,28 @@ NXP通用的手段是，为了保护有一个可以随时启动的镜像，预�
 
 ### 1.4.2 烧录到sd卡
 
-以`firmware_ls1046ardb_qspiboot.img`固件为例：
+以`firmware_ls1046ardb_sdboot.img`固件为例：
 
-1. 下载固件：`wget https://www.nxp.com/lgfiles/sdk/lsdk2108/firmware_ls1046ardb_qspiboot.img`
+1. 下载固件：`wget https://www.nxp.com/lgfiles/sdk/lsdk2108/firmware_ls1046ardb_sdboot.img`
 2. power reset板子，让板子从QSPI NOR Flash 0启动，进入FLASH 0的reboot。
 3. 使用uboot丰富的功能，比如sd卡，tftp等把固件装在到板子的内存中，再通过uboot的flash写入功能反写数据到flash中。按照以下步骤：
 	1. 可以从TFTP加载镜像：`=> tftp $load_addr firmware_ls1046ardb_qspiboot.img`
-	2. 可以从SD卡或者U盘读取镜像：`=> load mmc <device:part> $load_addr firmware_ls1046ardb_qspiboot.img`
-	3. 可以从SATA读取镜像：`=> load scsi <device:part> $load_addr firmware_ls1046ardb_qspiboot.img`
+	2. 可以从SD卡或者U盘读取镜像：`=> load mmc <device:part> $load_addr firmware_ls1046ardb_sdboot.img`
+	3. 可以从SATA读取镜像：`=> load scsi <device:part> $load_addr firmware_ls1046ardb_sdboot.img`
 4. 通过uboot的mmc工具把数据写入sd卡：`=> mmc dev 0; mmc write $load_addr 8 1f000`
 5. 复位为从sd启动：`cpld reset sd`，系统会自动的从sd启动了。
+
+也可以通过host linux来烧录sd卡：
+
+`sudo dd if=firmware_ls1046ardb_uboot_sdboot_1040_5559.img of=/dev/sdb seek=8 bs=512`
+
+对于可启动RAW型数据，建议SD卡分区：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211141254146.png)
+
+RAM分区作为img文件RAW数据写入（调试用）；
+boot分区作为fat32的文件系统，存入引导的相关firmware；
+rootfs分区作为ext4的文件系统，存入rootfs；
 
 ## 1.5 自动下载并且部署image
 
@@ -262,6 +274,7 @@ $ flex-builder -c atf -m ls2088ardb -b nor -B uefi
 需要注意：
 1. 如果使用一个自定义的RCW，我们需要重新配置 `rcw_<boottype>`变量在`<flexbuild>/configs/board/<machine>/manifest`,然后重新运行，`flex-builder -i clean-firmware; flex-builder -c atf -m <machine> -b <boottype>` 来产生新的ATF image。ATF的依赖会自动编译。
 2. flexbuild的-s参数是给secure boot使用的，`FUSE_PROVISIONING`默认没有被使能，如果需要的话，则在`configs/sdk.yml`文件中配置`CONFIG_FUSE_PROVISIONING`。
+3. **flex-builder可以自动下载相关源码**；
 
 ### 2.2.2 Linux kernel
 

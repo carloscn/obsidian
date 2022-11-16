@@ -4,47 +4,32 @@
     "type": "split",
     "children": [
       {
-        "id": "3c3150eb43a37899",
+        "id": "2f9d8d26d07d7098",
         "type": "tabs",
+        "dimension": 49.930362116991645,
         "children": [
           {
-            "id": "7b93fcafedf7dfd3",
+            "id": "9b87f2cc4e4d11e8",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
-                "mode": "source",
-                "source": true
-              }
-            }
-          },
-          {
-            "id": "010756bdd86f0ee9",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
-                "mode": "source",
-                "source": true
-              }
+              "type": "empty",
+              "state": {}
             }
           }
-        ],
-        "currentTab": 1
+        ]
       },
       {
-        "id": "72da2257aeb2ade2",
+        "id": "5cfe19679be0ec8c",
         "type": "tabs",
+        "dimension": 50.069637883008355,
         "children": [
           {
-            "id": "0e31bb406bbd306e",
+            "id": "a923f8c5cb0f660b",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
+                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
                 "mode": "preview",
                 "source": true
               }
@@ -116,13 +101,12 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
-                "collapseAll": false,
+                "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
                 "showSearch": false,
                 "searchQuery": "",
-                "backlinkCollapsed": false,
+                "backlinkCollapsed": true,
                 "unlinkedCollapsed": true
               }
             }
@@ -133,7 +117,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "embedded/[embedded] NXP-LS1046的启动流程.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -155,29 +138,27 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "embedded/[embedded] NXP-LS1046的启动流程.md"
-              }
+              "state": {}
             }
           }
-        ]
+        ],
+        "currentTab": 3
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 291.5
   },
-  "active": "010756bdd86f0ee9",
+  "active": "9b87f2cc4e4d11e8",
   "lastOpenFiles": [
+    "[Embedded] NXP-LS1046的启动流程.md",
+    "embedded/[Embedded] NXP-LS1046 secure boot.md",
+    "embedded/[Embedded] NXP-LS1046的启动流程.md",
+    "embedded/[embedded] NXP-LS1046的image操作.md",
     "embedded/[Embedded] ZYNQ-Secure Storage.md",
-    "embedded/[embedded] NXP-LS1046的启动流程.md",
-    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
-    "security/3.3_Security_对称密钥算法之AEAD.md",
     "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
     "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
-    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
-    "embedded/Secure boot overview.md",
-    "security/3.1_Security_对称密钥算法之AES.md",
-    "security/3.0_Security_对称密钥算法加解密.md"
+    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+    "security/3.3_Security_对称密钥算法之AEAD.md",
+    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md"
   ]
 }
