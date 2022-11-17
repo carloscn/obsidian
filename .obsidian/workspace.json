@@ -4,32 +4,34 @@
     "type": "split",
     "children": [
       {
-        "id": "2f9d8d26d07d7098",
+        "id": "3c3150eb43a37899",
         "type": "tabs",
-        "dimension": 49.930362116991645,
         "children": [
           {
-            "id": "9b87f2cc4e4d11e8",
+            "id": "010756bdd86f0ee9",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {}
+              "type": "markdown",
+              "state": {
+                "file": "security/3.3_Security_对称密钥算法之AEAD.md",
+                "mode": "source",
+                "source": true
+              }
             }
           }
         ]
       },
       {
-        "id": "5cfe19679be0ec8c",
+        "id": "4846dca086a2c717",
         "type": "tabs",
-        "dimension": 50.069637883008355,
         "children": [
           {
-            "id": "a923f8c5cb0f660b",
+            "id": "899fb1fcc8152659",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
+                "file": "security/3.3_Security_对称密钥算法之AEAD.md",
                 "mode": "preview",
                 "source": true
               }
@@ -85,7 +87,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "a1cb8996e5b31f73",
@@ -101,12 +104,13 @@
             "state": {
               "type": "backlink",
               "state": {
-                "collapseAll": true,
+                "file": "security/3.3_Security_对称密钥算法之AEAD.md",
+                "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
                 "showSearch": false,
                 "searchQuery": "",
-                "backlinkCollapsed": true,
+                "backlinkCollapsed": false,
                 "unlinkedCollapsed": true
               }
             }
@@ -117,6 +121,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "security/3.3_Security_对称密钥算法之AEAD.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -138,27 +143,29 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {}
+              "state": {
+                "file": "security/3.3_Security_对称密钥算法之AEAD.md"
+              }
             }
           }
-        ],
-        "currentTab": 3
+        ]
       }
     ],
     "direction": "horizontal",
-    "width": 291.5
+    "width": 300,
+    "collapsed": true
   },
-  "active": "9b87f2cc4e4d11e8",
+  "active": "010756bdd86f0ee9",
   "lastOpenFiles": [
-    "[Embedded] NXP-LS1046的启动流程.md",
-    "embedded/[Embedded] NXP-LS1046 secure boot.md",
-    "embedded/[Embedded] NXP-LS1046的启动流程.md",
-    "embedded/[embedded] NXP-LS1046的image操作.md",
+    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+    "security/3.3_Security_对称密钥算法之AEAD.md",
+    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
+    "embedded/[embedded] NXP-LS1046的启动流程.md",
     "embedded/[Embedded] ZYNQ-Secure Storage.md",
     "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
     "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
-    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
-    "security/3.3_Security_对称密钥算法之AEAD.md",
-    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md"
+    "embedded/Secure boot overview.md",
+    "security/3.1_Security_对称密钥算法之AES.md",
+    "security/3.0_Security_对称密钥算法加解密.md"
   ]
 }
