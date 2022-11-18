@@ -188,6 +188,226 @@ BL2 binary将会加载以下binaries：
 
 # 4. Code Signing Tool
 
+code sign tool主要就是生成符合NXP验证的secure boot的文件头。内部的实现是通过调用OpenSSL APIs。
 
+主要功能如下：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211171256613.png" width="80%" /></div> 
+
+## 4.1 key gen
+
+### genkey
+RSA的key pair从以下3部分来：N, E, D:
+
+-   N – Modulus
+-   E – Encryption exponent
+-   D – Decryption exponent
+
+**Public key**: 来源于E&N
+**Private key**: 来源于D&N
+
+生成key需要注意：
+* 支持三种长度的key 1024 / 2048 /4096；
+* 生成的key格式是pem格式；
+* 可以自定义名字。
+
+```
+./genkeys <Key length in bits >
+```
+
+### gen_otpmk_drbg
+
+工具可以插入hamming code在用户定义的256b的十六进制字符串中。也可以产生256b的随机数并插入hamming code。这个需求可以通过gen_otpmk_drbg完成。
+
+`./gen_otpmk_drbg --b <bit_order> [--s <string>] [--u]`
+
+生成drbg随机数：
+
+`./gen_drv_drbg <hamming_algo> [string]`
+
+## 4.2 header creation
+
+### uni_pbi
+
+```
+$ ./uni_pbi [options] <input_file> 
+```
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-E0B02E68-62BC-4043-ABF3-95804A92D85A.html
+
+### uni_sign
+
+uni_sign tool能够被使用如下：
+
+-   CSF header generation along with signature for both ISBC and ESBC phases
+-   CSF header generation without signature if private key is not provided
+-   uni_sign tool (with ESBC = 0 in input file) is used for creating signature and header over Boot1 image to be verified by ISBC
+-   uni_sign tool (with ESBC = 1 in input file) is used for creating signature and header over images to be verified by ESBC
+
+运行命令：
+
+```
+./uni_sign [options] <input_file>	  	
+```
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-054242AF-D433-427B-B020-2602CAA777E7.html
+
+## 4.3 signature gen
+
+### gen_sign
+
+这个工具还能提供计算signature的功能。只需要hash file和私钥作为输入。
+
+`./gen_sign [option] <HASH_FILE> <PRIV_KEY_FILE>`
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-A07DA501-2E7C-41FC-B635-3AD1F917A5D0.html
+
+### sign_embed
+
+把sign的结果嵌入到header里面则需要使用这个工具。
+
+`./sign_embed <hdr_file> <sign_file>`
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-8BEAD88D-4D01-4632-9C1F-7E72805D2B3E.html
 
 # 5. Secure Boot Enabling
+
+Secboot流程能允许被执行：
+* Chain of Trust,
+* Chain of Trust with confidentiality
+
+## 5.1 secure boot exec flow
+
+总体流程如图所示：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211171326659.png" width="70%" /></div> 
+
+##### 开发模式确认
+
+我们需要确定是开发模式还是产品模式。如果是开发模式，不要进行ITS fuse的熔断，设定RCW[SB_EN] = 1就可以开启secure boot；如果是开发模式，则需要熔断ITS在SFP。
+
+##### Provisioning
+
+无论是开发模式还是在产品模式，都有熔断eFUSE的需求，OTPMK and SRKH两个位需要注意。OTPMK 需要使用`gen_otpmk_drbg`产生符合质量的随机数。详见Provisioning。**熔断OTPMK是必须的，无论是产品模式还是开发模式**。
+
+##### Program secure boot images
+
+在产品模式，只需要把secure boot images烧写到默认bank地址即可。在开发模式，需要编写到alternate bank 地址，由default bank切换到alternate bank再去启动secure boot。
+
+##### power on board
+
+###### 无image加密
+
+在没有image加密的情况下：
+
+如果secure boot 烧写到默认bank(both dev and product mode)，ISBC code获取控制权，并且验证ESBC的image。ESBC进一步验证linux/rootfs/dtb的signature。
+
+如果secure boot烧写到 alternate bank中（dev mode），板子启动将会从默认的bank启动。当切换到alternate bank的时候，ISBC code获取控制权，并且验证ESBC的image。ESBC进一步验证linux/rootfs/dtb的signature。最后启动linux。
+
+###### image加密
+
+如果image使能了加密：
+
+如果secure boot 烧写到默认bank(both dev and product mode)，ISBC code获取控制权，并且验证ESBC的image。ESBC进一步验证linux/rootfs/dtb的signature。
+
+**First boot**：封装步骤（**应在OEM工厂内进行**）
+* 默认情况下，encap和decap引导脚本将安装在引导分区中。
+* 在生成所有映像后，当板首次启动时，encap bootscript将执行。此引导脚本：
+	* 验证和封装Linux和dtb映像，并用新封装的Linux和dtb替换未加密的Linux和dtb映像。
+	* ![](https://raw.githubusercontent.com/carloscn/images/main/typora202211171404370.png)
+	* 将encap引导脚本和头替换为已存在于引导分区中的decap引导脚本及其头。
+	* emit reset信号。
+
+**Subsequent boot**:
+* 如果安全引导映像在默认库中闪存（用于生产/开发阶段）:
+	* U-Boot将使用decap命令执行脚本
+	* 在DDR中Un-blobify linux和dtb映像。
+	* 将控制权传递给这些images。
+	![](https://raw.githubusercontent.com/carloscn/images/main/typora202211171407967.png)
+
+如果secure boot烧写到 alternate bank中（dev mode），板子启动将会从默认的bank启动。当切换到alternate bank的时候，ISBC code获取控制权，并且验证ESBC的image。ESBC进一步验证linux/rootfs/dtb的signature。最后启动linux。
+
+## 5.2 prepare board for secure boot
+
+### enable POVDD
+
+检查POVDD，对于LS1046RDB，需要Put J21 to enable PWR_PROG_SFP。
+
+### Byte swap for reading and writing SRKH/OTPMK
+
+应谨慎编写SRKH和OTPMK。如果使用Core写入SRKH和OTPMK，则需要交换SRKH与OTPMK。但是，如果使用DAP或SFP写入SRKH和OTPMK，则不需要交换。有关详细信息，请参阅下表。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211171411035.png)
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-036CF49E-4211-48B8-803A-870C57777C8A.html
+
+###  Program OTPMK
+
+After [enabling POVDD](https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-0EFF85FB-9070-4D76-A926-B973CA6C8FB5.html#GUID-0EFF85FB-9070-4D76-A926-B973CA6C8FB5), follow these steps to program OTPMK at U-Boot:
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-F780D1D5-F1B2-478B-86AE-267D74F9C790.html
+
+### Program SRKH mirror registers
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-2CF1D60F-C79F-4A35-800B-2BFE504EBAC5.html
+
+###  Write SFP_INGR register
+
+参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-EFF8FF41-C8C0-4A3B-AF95-E801D585B7C6.html
+
+## 5.3 build secure boot image
+
+### 5.3.1 using flexbuild
+
+After setting up the flexbuild environment, run the following commands to generate images for NXP CoT:
+
+```
+$ flex-builder -i clean-firmware
+$ flex-builder -i mkfw -m <machine> -b <boottype> -T nxp-cot  (optional)
+$ flex-builder -i mkfw -m <machine> -b <boottype> -s ('-s' is equivalent to '-T nxp-cot')
+```
+
+For example:
+
+```
+$ flex-builder -i clean-firmware
+$ flex-builder -i mkfw -m lx2162aqds -b xspi -T nxp-cot  (optional)
+$ flex-builder -i mkfw -m ls1046ardb -b xspi -s ('-s' is equivalent to '-T nxp-cot')
+```
+
+The images will be available at: `/build/images/`.
+
+### 5.3.2 using manually TF-A
+
+需要在TF-A中设定：
+* -   Set `TRUSTED_BOARD_BOOT=1` to enable trusted board boot.
+    NXP CoT is enabled automatically when `TRUSTED_BOARD_BOOT=1` and `MBEDTLS_DIR path` is not specified.
+* Specify path of the CST repository as `CST_DIR` to generate CSF headers. In NXP CoT, CSF header is embedded to the BL31, BL32, and BL33 images.
+* Default input files for CSF header generation are available in `CST_DIR`.
+* As per the default input file, you need to generate following RSA key pairs and add them to the ATF repository:
+	-   srk.pri
+	-   srk.pub
+* The RSA key pairs can be generated using the gen_keys CST tool. To change the input file, you can use the options `BL33_INPUT_FILE`, `BL32_INPUT_FILE`, `BL31_INPUT_FILE`.
+
+注意：TRUSTED_BOARD_BOOT 也可以被使能在非安全启动。 然而，ROTPK在非安全启动流中被忽略，并且故障不会导致SNVS转换。
+
+```
+make PLAT=<platform> TRUSTED_BOARD_BOOT=1 CST_DIR=$CST_DIR_PATH \
+       
+       RCW=$RCW_BIN \
+       BL32=$TEE_BIN SPD=opteed\
+       BL33=$UBOOT_SECURE_BIN \
+       pbl \
+       fip
+```
+To prepend CSF headers to BL31, BL32, and BL33 images:
+```
+make PLAT=<platform> all fip pbl SPD=opteed BL32=tee.bin BL33=u-boot.bin \
+       RCW = <secure bot RCW>	\
+       TRUSTED_BOARD_BOOT=1 CST_DIR=<cst dir path> BL33_INPUT_FILE=<ip file> BL32_INPUT_FILE=<ip_file> \
+       BL31_INPUT_FILE = <ip file>
+```
+The secure boot binaries for NXP CoT are available in the `atf` directory:
+-   `build/<platform>/release/fip.bin`
+-   `build/<platform>/release/bl2_flexspi_nor_sec.pbl`
+
