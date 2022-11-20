@@ -313,9 +313,77 @@ PUF eFUSE的配置需要使用Vitis建立AP的工程，使用ZYNQ上面的AP来�
 * XSK_EFUSEPS_WRITE_PPK0_HASH
 * XSK_EFUSEPS_PPK0_HASH
 
+### 3.1.4 RSA Key Revocation Support
+
+RSA密钥提供了撤销一个分区的**secondary**密钥（SPK）的能力，而无需撤销所有分区的密钥。这是通过使用新的BIF参数`spk_select`利用`USER_FUSE0`到`USER_FUSE7` 位域实现（如果这些位域没有用于表示其他信息，只用于表示密钥的id，最多可以撤销256个SPK，如图所示）。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20221120140817.png)
+
+下图表示ZYNQ使用SPK_ID进行SPK revocation的过程。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora20221120140510.png" width="60%" /></div> 
+
+以下是使用辅助密钥创建经过身份验证的映像的步骤：
+* 使用bootgen生成RSA密钥对。
+* 我们在步骤1中生成了一个辅助密钥（SSK）。如果需要更多的SSK，请重复步骤1以创建SSK密钥。
+* 使用bootgen和下面的bif文件模板生成经过验证的引导映像。下面的模板假设bootloader和u-boot使用[sskfile]标记提供的密钥进行了验证，并且该密钥根据eFUSE中存储的SPK_ID进行了验证；PMU FW和ATF images使用sskfile提供的密钥进行验证，并根据存储在USER_eFUSE中的SPK_ID bitmap 验证该密钥。(确保在生成映像时使用命令行参数–efuseppkbits<path_to_sha_txt_file>命令bootgen生成PPK哈希。)
+* 使能RSA认证通过设定 “RSA_EN” 在eFUSE上. 参考 [Programming BBRAM and eFUSEs Application Note (XAPP1319)](https://www.xilinx.com/support/documentation/application_notes/xapp1319-zynq-usp-prog-nvm.pdf)
+* 写入在第三步创建的PPK的SHA-3 hash 到eFUSE的PPK0 hash位域。
+
+确保在生成image时使用命令行参数–efuseppkbits<path_to_sha_txt_file>命令bootgen生成PPK hash。
+
+**示例**：
+image header和FSBL使用不同的SSK进行身份验证（分别为ssk1.pem和ssk2.pem），用以下bif文件：
+
+```
+the_ROM_image: {
+[auth_params]ppk_select = 0
+[pskfile]psk.pem
+[sskfile]ssk1.pem
+[bootloader, authentication = rsa, spk_select = spk-efuse, spk_id = x00000001, sskfile = ssk2.pem]zynqmp_fsbl.elf
+[destination_cpu =a53-0, authentication = rsa, spk_select = user-efuse,spk_id = 0x1, sskfile = ssk3.pem]Application1.elf
+[destination_cpu =a53-0, authentication = rsa, spk_select = spk-efuse, spk_id = 0x00000001, sskfile = ssk4.pem]Application2.elf
+}
+```
+
+相同的SSK将作用于image header和FSBL（ssk2.pem）：
+```
+the_ROM_image: {
+[auth_params]ppk_select = 0 [pskfile]psk.pem
+[bootloader, authentication = rsa, spk_select = spk-efuse, spk_id = 0x00000001, sskfile = ssk2.pem]zynqmp_fsbl.elf
+[destination_cpu =a53-0, authentication = rsa, spk_select = user-efuse, spk_id = 1, sskfile = ssk3.pem]Application1.elf
+[destination_cpu =a53-0, authentication = rsa, spk_select = spk-efuse, spk_id = 0x00000001, sskfile = ssk4.pem]Application2.elf
+}
+```
+
+注意：
+* `spk_select = spk-efuse` 表示 指定的分区将会使用`spk_id`eFUSE位域。 
+* `spk_select = user-efuse` 指示 指定的分区将会使用user eFUSE位域，而CSU ROM总是使用`spk_id`eFUSE位域。
+
+
 ## 3.2 PUF Enc/Dec demo
 
 完成上面PUF的注册，我们假定eFUSE和PUF的配置已经OK了，现在我们需要编写AP的固件（baremental程序），来使用PUF的加密和解密功能。
+
+该固件是在xilinx的vitis ide上完成的，vitis已经集成了ZYNQ所用的bsp驱动包，并提供了相应的操作key、加密解密、访问寄存器、控制外设等接口。
+
+打开vitis ide创建工程：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20221120142657.png)
+
+选择bsp包：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20221120142729.png)
+
+选择processor为APU：CortexA53_0：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20221120142810.png)
+
+导入baremental的源码（下面就是源码核心）：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20221120142920.png)
+
+源码进行编译，最后生成`BOOT.BIN`文件，将其复制到SD卡的boot分区。启动即可运行。
 
 ### 加密
 

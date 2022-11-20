@@ -4,17 +4,35 @@
     "type": "split",
     "children": [
       {
-        "id": "5cfe19679be0ec8c",
+        "id": "ef1797578db14c79",
         "type": "tabs",
         "children": [
           {
-            "id": "a923f8c5cb0f660b",
+            "id": "02ae7dbc8f824fb5",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "mode": "source",
+                "source": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "4ed44e60883188f5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4bb30d99ed0ce97c",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
+                "mode": "preview",
                 "source": true
               }
             }
@@ -86,7 +104,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -103,7 +121,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -126,7 +144,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md"
+                "file": "embedded/[Embedded] ZYNQ-Secure Storage.md"
               }
             }
           }
@@ -137,11 +155,11 @@
     "direction": "horizontal",
     "width": 291.5
   },
-  "active": "a923f8c5cb0f660b",
+  "active": "4bb30d99ed0ce97c",
   "lastOpenFiles": [
+    "embedded/[Embedded] NXP-LS1046 secure boot.md",
     "embedded/[Embedded] NXP-LS1046的启动流程.md",
     "embedded/[embedded] NXP-LS1046的image操作.md",
-    "embedded/[Embedded] NXP-LS1046 secure boot.md",
     "[Embedded] NXP-LS1046的启动流程.md",
     "embedded/[Embedded] ZYNQ-Secure Storage.md",
     "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
