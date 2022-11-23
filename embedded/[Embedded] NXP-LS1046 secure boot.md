@@ -10,15 +10,15 @@ image header有两类：
 -   **CSF headers (NXP Chain of Trust)** 参考：[Code signing tool](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-932D50F3-D90D-4ED0-BEFC-B1BF825EB422.html).
 -   X.509 certificate (Arm Chain of Trust). 参考：[ARM X.509 certificate](https://developer.arm.com/docs/den0006/latest/trusted-board-boot-requirements-client-tbbr-client-armv8-a)
 
-**Note，本文以CSF headers (NXP Chain of Trust)为主**。
+**Note，当前芯片是LS1406，不支持ARM的x.509版本的验证，因此以CSF headers (NXP Chain of Trust)为主**。
 
 对于基于TF-A的secure boot流程简述如下：
 
 1. SoC从reset状态释放之后，控制权hands off BL1。BL1的主要负责去验证BL2的image和BL1自己image header中的信息是否匹配。接着，BL1读取`BOOTLOC`指针的值（这个值在BL2 image header中）。
 2. BL2如果被验证成功。BL2 image进一步验证FIP image的每一个header。FIP image主要包含：
-	- X.509 certificate/CSF header BL31 + BL31 image
-	- X.509 certificate/CSF header BL32 + BL32 image (optional)
-	- X.509 certificate/CSF header BL33 + BL33 image
+	- X.509 certificate/**CSF header BL31 + BL31** image
+	- X.509 certificate/**CSF header BL32 + BL32** image (optional)
+	- X.509 certificate/**CSF header BL33 + BL33** image
 3. BL33（uboot）负责验证和执行uboot所引导层级的固件。
 
 TF-A引导secure boot流程：
@@ -63,7 +63,7 @@ TF-A引导secure boot流程：
 
 <div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161312073.png" width="100%" /></div> 
 
-验签过程由板子完成。
+验签过程由设备端处理器完成。
 
 ### 2.1.3 签名验签元素说明
 
@@ -89,8 +89,8 @@ Super Root Key (SRK) table（后面会展开讲）。一个或多个公钥被放
 
 Chain of Trust (CoT)确保只有被认证的image能够被执行在特定的平台。image在CoT认证可以被分为两个阶段：
 
-* Pre-boot and ISBC
-* ESBC
+* Pre-boot and ISBC （详见2.2.1）
+* ESBC （详见2.2.2）
 
 为了保证image的加密特性，image可以被加密以blobs的形式存储在flash中。ESBC uboot image程序可以使用Cryptographic blob mechanism来创建保密特性的信任链。[QorIQ Trust Architecture 3.0 User Guide](https://www.nxp.com.cn/design/training/security-201-introduction-to-qoriq-trust-architecture:TIP-SECURITY-201-INTRODUCTION-TRUST?SAMLart=ST-AAF0E3YJDJej%2BJVBprc7Vu5rkUdez%2FJlD%2F4q%2Fanft6IQwsdABXfRNGo%2F)
 
@@ -273,8 +273,8 @@ uni_sign tool能够被使用如下：
 # 5. Secure Boot Enabling
 
 Secboot流程能允许被执行：
-* Chain of Trust,
-* Chain of Trust with confidentiality
+* Chain of Trust （不加密，仅开启签名验签）
+* Chain of Trust with confidentiality （加密和签名验签）
 
 ## 5.1 secure boot exec flow
 
@@ -331,7 +331,7 @@ Secboot流程能允许被执行：
 
 ### enable POVDD
 
-检查POVDD，对于LS1046RDB，需要Put J21 to enable PWR_PROG_SFP。
+检查POVDD引脚，对于LS1046RDB，需要Put J21 to enable PWR_PROG_SFP。
 
 ### Byte swap for reading and writing SRKH/OTPMK
 
