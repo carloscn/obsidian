@@ -23,7 +23,7 @@ image header有两类：
 
 TF-A引导secure boot流程：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161258430.png" width="100%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161258430.png" width="80%" /></div> 
 
 ## 1.2 secure images format
 
@@ -31,13 +31,13 @@ TF-A引导secure boot流程：
 
 在pbl文件中，主要包含RCW和bl2.bin文件。NXP为bl2.bin文件创造了CSF头文件。
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161253136.png" width="100%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161253136.png" width="70%" /></div> 
 
 ### 1.2.2 fip.bin
 
 在fip.bin文件中，包含BL31，BL32(optee.bin)，BL33（uboot/uefi），每一个固件都有一个文件头。
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161257646.png" width="100%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161257646.png" width="70%" /></div> 
 
 # 2. Secure Boot High-Level
 
@@ -45,7 +45,7 @@ TF-A引导secure boot流程：
 
 ### 2.1.1 code sign tool签名
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161307776.png" width="100%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161307776.png" width="60%" /></div> 
 
 这部分由Code Signing Tool (CST)完成。需要输入：
 
@@ -61,7 +61,7 @@ TF-A引导secure boot流程：
 
 ### 2.1.2 验签过程
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161312073.png" width="100%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161312073.png" width="60%" /></div> 
 
 验签过程由设备端处理器完成。
 
@@ -85,7 +85,7 @@ Super Root Key (SRK) table（后面会展开讲）。一个或多个公钥被放
 
 ## 2.2 信任链
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202211161326629.png)
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161326629.png" width="80%" /></div> 
 
 Chain of Trust (CoT)确保只有被认证的image能够被执行在特定的平台。image在CoT认证可以被分为两个阶段：
 
@@ -138,7 +138,7 @@ PBI程序（ pre-boot initialization commands），一旦启动secure boot，�
 
 过程如下所示：
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202211161432065.png)
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211161432065.png" width="90%" /></div> 
 
 * **SecMon check** ：CPU0需要确认SecMon的状态，如果SecMon状态没有就绪则进入spinloop状态。
 * **ESBC pointer read**：CPU0从SCRTCHRW1寄存器读取ESBC的CSF header的地址，然后从地址拿到文件头信息。此过程会判断header中的barker-code以此判断是否符合平台。
@@ -152,7 +152,8 @@ PBI程序（ pre-boot initialization commands），一旦启动secure boot，�
 
 ISBC的header和ESBC的header如图所示：
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202211161441460.png)
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typoratypora202211161441460.png" width="70%" /></div> 
+
 
 详细参考： https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-4D5D0916-29CC-4E11-BF82-477C40F31585.html
 
@@ -411,3 +412,198 @@ The secure boot binaries for NXP CoT are available in the `atf` directory:
 -   `build/<platform>/release/fip.bin`
 -   `build/<platform>/release/bl2_flexspi_nor_sec.pbl`
 
+# 2. Provisioning
+
+NXP的Trust Architecture (TA)，提供片上FuSE（OTP）。通过Security Fuse Processor (SFP)来配置以下寄存器：
+-   One Time Programmable Master Key Registers (OTPMKRs)
+-   Super Root Key Hash Registers (SRKHRs)
+-   Debug Challenge and Response Value Registers (DCVRs and DRVRs)
+-   OEM Security Policy Registers (OSPRs)
+-   OEM Unique ID/Scratch Pad Registers (OUIDRs)
+
+## 2.1 FuSe Programming Scenarios
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211241549708.png)
+
+## 2.2 Fuse Provisioning during OEM Manufacturing
+
+这一步被分为两个阶段：
+* Stage 1： (Non-secure boot) – Minimal Fuse Provisioning
+* Stage 2： (Secure Boot) – Final Fuse Provisioning
+
+### stage 1
+
+如果启动secureboot 最小的配置项需要兼顾如下：
+-   SRKH
+-   CSFF
+-   Minimal OTPMK
+
+此阶段不通过安全引导来执行，但必须设置FuSe，以便下一次引导通过安全引导。如果这一步骤发生在可信的环境中，**OEM**可以选择在这一阶段自行编写所有保险丝。
+
+### stage 2
+
+剩下的FuSe可以在secure boot启动的时候进行编写。注意，此步骤导致OEM阶段FuSe熔断，FuSe不再可写。
+
+## 2.3 Fuse Provisioning Utility
+
+NXP的安全固件中包含了做Provisioning的固件，这个固件编译可以参考下面 build fuse provisioning firmware image一节。
+
+关于fuses值的信息将通过fuses文件提供。fuses文件是一个二进制文件，具有指示fuses及其相应值的位。CST提供了一个输入文件，用户可以在其中输入所需的值。该工具生成一个fuses文件，该文件在BL2映像中解析以进行fuses配置。安全固件将进行必要的检查，以确定所提供的输入值是否正确。例如，当SFP保险丝中已设置OEM_WP时，无法对OTPMK、SRKH进行编程。
+
+### fuse file structure
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211241649994.png)
+
+### 配置文件示例
+```
+---------------------------------------------------
+# Specify the platform. [Mandatory]
+# Choose Platform - LS1/LS1043/LS1012/LS1046
+PLATFORM=LS1046
+---------------------------------------------------
+# GPIO Pin to be set for raising POVDD [Optional]
+POVDD_GPIO=
+---------------------------------------------------
+# One time programmable master key flags in binary form.[Mandatory]
+# 0000 -> Program default minimal OTPMK value
+# 0001 -> Program random OTPMK value
+# 0010 -> Program user supplied OTPMK value
+# 0101 -> Program random OTPMK value with pre-programmed minimal value
+# 0110 -> Program user supplied OTPMK value with pre-programmed minimal value
+# 1xxx -> Don't blow OTPMK
+OTPMK_FLAGS=0000
+# One time programmable master key value.
+# [Optional dependent on flags, Mandatory in case OTPMK_FLAGS="0010" or "0110"]
+OTPMK_0=
+OTPMK_1=
+OTPMK_2=
+OTPMK_3=
+OTPMK_4=
+OTPMK_5=
+OTPMK_6=
+OTPMK_7=
+---------------------------------------------------
+# Super root key hash [Optional]
+SRKH_0=
+SRKH_1=
+SRKH_2=
+SRKH_3=
+SRKH_4=
+SRKH_5=
+SRKH_6=
+SRKH_7=
+---------------------------------------------------
+# Specify OEM UIDs. [Optional]
+# e.g OEM_UID_0=11111111
+OEM_UID_0=
+OEM_UID_1=
+OEM_UID_2=
+OEM_UID_3=
+OEM_UID_4=
+---------------------------------------------------
+# Specify Debug challenge and response values. [Optional]
+# e.g DCV_0=11111111
+DCV_0=
+DCV_1=
+DRV_0=
+DRV_1=
+---------------------------------------------------
+# Specify Debug Level in binary form. [Optional]
+# 000 -> Wide open: Debug portals are enabled unconditionally.
+# 001 -> Conditionally open via challenge response, without notification.
+# 01x -> Conditionally open via challenge response, with notification.
+# 1xx -> Closed. All debug portals are disabled.
+DBG_LVL=
+---------------------------------------------------
+# System Configuration register bits in binary form [Optional]
+# WP (OEM write protect)
+# ITS (Intent to Secure)
+# NSEC (Non secure)
+# ZD (ZUC Disable)
+# K0,K1,K2 (Key revocation bits)
+# FR0 (Field return 0)
+# FR1 (Field return 1)
+WP=
+ITS=
+NSEC=
+ZD=
+K0=
+K1=
+K2=
+FR0=
+FR1=
+---------------------------------------------------
+# Specify the output fuse provisioning file name. (Default:fuse_scr.bin) [Optional]
+OUTPUT_FUSE_FILENAME=fuse_scr.bin
+---------------------------------------------------     
+```
+
+## 2.4 Deploy and run fuse provisioning
+
+分为以下步骤：
+* 开启POVDD
+* 编译Provisioning firmware image
+* 部署image到板子上
+* 执行Provisioning
+
+##### 开启POVDD
+
+检查`PWR_PROG_SFP`引脚，高电平有效。
+
+##### 编译Provisioning firmware image
+1. 编译CST
+    `$ flex-builder -c cst`
+2. 编译Provisioning firmware（在编译firmware之前需要配置）：
+	1. Set `CONFIG_FUSE_PROVISIONING=y` in file `flexbuild_<version>/configs/sdk.yml`
+3. [可选] 编辑用于Provisioning的输入文件：
+	1. The input file is available at: `<flexbuild_dir>/components/apps/security/cst/input_files/gen_fusescr/<device>/input_fuse_file`，注意`<device>` 可以是 `ls2088_1088` or `ls104x_1012`
+4. 生成image：
+	```
+	$ flex-builder -i mkfw -m <machine> -b <boottype>
+	```
+	1.  `<machine>` can be ls1012ardb, ls1012afrwy, ls1021atwr, ls1028ardb, ls1043ardb, ls1046ardb, ls1046afrwy, ls1088ardb_pb, ls2088ardb, lx2162aqds
+	2. `<boottype>` can be nor, sd, emmc, qspi, xspi, nand
+5. 最后生成新的img位于：`flexbuild_<version>/build/images/firmware_<machine>_<boottype>boot.img`
+##### Deploy and run fuse provisioning firmware image on board
+
+通过uboot烧写 `firmware_ls1046ardb_sdboot.img` ，可以把 `firmware_ls1046ardb_sdboot.img` 放在sd卡中，使用uboot来把这个img烧写到mmc中。
+
+```
+=> tftp a0000000 firmware_ls1046ardb_sdboot.img => mmc write a0000000 8 1fff8 => cpld reset sd
+```
+
+也可以通过手动烧写 https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-87C3A500-F0D7-4DD9-B5F1-112C58EE54E4.html
+
+##### Validate fuse provisioning
+
+启动uboot之后，进入uboot操作界面。检查DCFG scratch 4寄存器是否存在错误代码。例如，对LS1046ARDB运行以下命令以检查错误代码：
+
+```
+=> md 1ee020c 1
+```
+
+如果md命令未显示任何错误，则Provisioning成功。
+```
+01ee020c: 00000000
+```
+
+Error code可以参考： https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-BC1D24DA-1DE4-4155-9F6C-F1E69315545E.html
+
+
+# Terms and Abbreviations
+|名词|解释|
+|---|---|
+|CST|制作secureboot image的工具，参考：[Code Signing Tool](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-932D50F3-D90D-4ED0-BEFC-B1BF825EB422.html)|
+|OTPMK|fuse上的一个位域，参考：[Program OTPMK](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-F780D1D5-F1B2-478B-86AE-267D74F9C790.html)|
+|SRKH|fuse上的一个位域，参考：[Program SRKH mirror registers](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-D8CC0ABA-108D-4966-8C01-F584B897B9E2.html)|
+|SFP|SFP_INGR寄存器，用于配置FuSe，参考：[Write SFP_INGR register](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-EFF8FF41-C8C0-4A3B-AF95-E801D585B7C6.html)|
+|OEM_WP|OEM阶段fuse上的一个位域，参考：[Fuse Programming Scenarios](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-67557564-7BD5-4C5F-9686-59D54A487B88.html)|
+|CSFF|OEM阶段fuse上的一个位域，参考：[Fuse Programming Scenarios](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-67557564-7BD5-4C5F-9686-59D54A487B88.html)|
+|OEM|原始设备制造商简称_OEM_，OEM是英文Original Equipment Manufacturer的缩|
+|POVDD|芯片上的一个引脚引脚 [Enable POVDD](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-0EFF85FB-9070-4D76-A926-B973CA6C8FB5.html)|
+|---|---|
+|---|---|
+|---|---|
+|---|---|
+|---|---|
+|---|---|
