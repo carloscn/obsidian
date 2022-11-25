@@ -332,7 +332,16 @@ Secboot流程能允许被执行：
 
 ### enable POVDD
 
-检查POVDD引脚，对于LS1046RDB，需要Put J21 to enable PWR_PROG_SFP。
+检查POVDD引脚，对于LS1046RDB，需要Put J21 to enable PWR_PROG_SFP。参考LS1046A的[datasheet](https://www.nxp.com/docs/en/data-sheet/LS1046A.pdf)。
+
+该引脚为SFP，引脚如图：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202211251126182.png" width="70%" /></div> 
+
+需要在硬件设计上引出该引脚，为Provisioning做准备。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211251130135.png)
+
 
 ### Byte swap for reading and writing SRKH/OTPMK
 
@@ -412,7 +421,7 @@ The secure boot binaries for NXP CoT are available in the `atf` directory:
 -   `build/<platform>/release/fip.bin`
 -   `build/<platform>/release/bl2_flexspi_nor_sec.pbl`
 
-# 2. Provisioning
+# 6. Provisioning
 
 NXP的Trust Architecture (TA)，提供片上FuSE（OTP）。通过Security Fuse Processor (SFP)来配置以下寄存器：
 -   One Time Programmable Master Key Registers (OTPMKRs)
@@ -421,11 +430,11 @@ NXP的Trust Architecture (TA)，提供片上FuSE（OTP）。通过Security Fuse 
 -   OEM Security Policy Registers (OSPRs)
 -   OEM Unique ID/Scratch Pad Registers (OUIDRs)
 
-## 2.1 FuSe Programming Scenarios
+## 6.1 FuSe Programming Scenarios
 
 ![](https://raw.githubusercontent.com/carloscn/images/main/typora202211241549708.png)
 
-## 2.2 Fuse Provisioning during OEM Manufacturing
+## 6.2 Fuse Provisioning during OEM Manufacturing
 
 这一步被分为两个阶段：
 * Stage 1： (Non-secure boot) – Minimal Fuse Provisioning
@@ -444,7 +453,7 @@ NXP的Trust Architecture (TA)，提供片上FuSE（OTP）。通过Security Fuse 
 
 剩下的FuSe可以在secure boot启动的时候进行编写。注意，此步骤导致OEM阶段FuSe熔断，FuSe不再可写。
 
-## 2.3 Fuse Provisioning Utility
+## 6.3 Fuse Provisioning Utility
 
 NXP的安全固件中包含了做Provisioning的固件，这个固件编译可以参考下面 build fuse provisioning firmware image一节。
 
@@ -538,7 +547,7 @@ OUTPUT_FUSE_FILENAME=fuse_scr.bin
 ---------------------------------------------------     
 ```
 
-## 2.4 Deploy and run fuse provisioning
+## 6.4 Deploy and run fuse provisioning
 
 分为以下步骤：
 * 开启POVDD
@@ -589,6 +598,150 @@ OUTPUT_FUSE_FILENAME=fuse_scr.bin
 
 Error code可以参考： https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-BC1D24DA-1DE4-4155-9F6C-F1E69315545E.html
 
+# 7. U-Boot Secure feature
+
+## 7.1 一些在uboot环境中的命令
+
+为了建立安全启动信任链，一些 U-Boot 命令已添加到 ESBC 代码中。
+
+**esbc_validate command**
+
+验证CSF header的命令。
+
+`esbc_validate <img_hdr> [<pub_key_hash>]`
+
+|参数|解释|
+|---|---|
+|img_hdr|image的CSF header位置|
+|pub_key_hash|用于验证image的公钥hash。可选，如果不提供则使用ISBC一样的key|
+
+**esbc_halt command**
+
+```
+esbc_halt (no arguments)
+```
+
+可以让处理器进入spin loop状态。
+
+**blob enc command**
+
+此命令将创建放置在 src 位置的image加密成blob形式，并将该 blob 放置在 dst 位置。
+
+```
+blob enc <src location> <dst location> <length> <key_modifier address>
+```
+
+|参数|解释|
+|---|---|
+|src location|需要加密的image地址|
+|dst location|blob输出的地址|
+|length|需要加密的image的长度|
+|key_modifier address|放置一个 16 字节长的随机数（key modifier）的地址|
+
+**blob dec command**
+
+此命令将解密放置在 src 位置的 blob的解密结果放置在 dst 位置。
+
+```
+blob enc <src location> <dst location> <length> <key_modifier address>
+```
+
+|参数|解释|
+|---|---|
+|src location|需要解密的blob地址|
+|dst location|解密后的image输出的地址|
+|length|需要解密的image的长度|
+|key_modifier address|放置一个 16 字节长的随机数（key modifier）的地址|
+
+## 7.2 Bootscript
+
+Bootscript是uboot image的一个执行脚本，内部包含了执行uboot的命令。ESBC在除了验证uboot之外，还会在验证执行uboot之前验证bootscript。bootscript有一些规则需要遵守：
+
+* Bootscript 可以包含 U-Boot 支持的任何命令。而secure boot不对脚本内调用的命令是否正确进行验证，换句话说，secure boot假设script上所有的命令都是正确的。
+* 如果bootscript中出现了一些语法错误，会导致boot进入spin loop状态；
+* 在uboot脚本中使用验证命令，不支持分散的images；
+* 如果ITS fuse被熔断，任何在验证image的时候的错误都会导致系统reset。因此查找错误应该在这次启动之前的log中寻找 。
+
+ESBC的U-Boot 期望从flash加载引导脚本。 ESBC的U-Boot 代码假定用于签署引导脚本的公钥/私钥对与签署 U-Boot 映像时使用的公钥/私钥对相同。 如果用户使用不同的密钥对对镜像进行签名，则密钥对的 N 和 E 分量的哈希应在宏中定义：
+
+```
+CONFIG_BOOTSCRIPT_KEY_HASH
+```
+
+### 7.2.1 Chain of Trust
+
+Bootscript 包含有关下一级image的信息，例如 MC，Linux ESBC 根据它们的公钥验证这些image。 如果需要，MC 使用经过验证的 MC 映像启动，最后执行 bootm 命令以将控制权传递给 Linux 映像。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211251314800.png)
+
+上面图片的bootscript示例：
+
+```bash
+# Get Images and Headers on DDR
+.
+.
+.
+# Validate the Images. (<pub_key_hash> is optional)
+esbc_validate <Image1 Header Address> <pub_key_hash>
+esbc_validate <Image2 Header Address> <pub_key_hash>
+.
+.
+.
+
+# Boot the Linux
+bootm <Kernel Fit Image Address>
+```
+
+### 7.2.2  Chain of Trust with confidentiality
+
+为了建立具有机密性的信任链，可以使用加密的 blob 机制。 在这个信任链中，经过验证的image被允许使用一次性可编程主密钥（One Time Programmable Master Key）来解密系统image信息。 将使用两个引导脚本。 首先使用封装引导脚本创建下一级image（例如 MC、Linux）的 blob 并将它们保存在闪存上。 在此之后，在将封装引导脚本替换为解封装引导脚本后启动系统，解封装 blob 并启动 MC 和 Linux。
+
+#### 加密
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211251316239.png)
+
+```bash
+ # Get Images on DDR
+.
+.
+.
+# Create the Blobs
+blob enc <Img1 addr> <Img1 dest addr> <Img1 size> <key_modifier address>
+blob enc <Img2 addr> <Img2 dest addr> <Img2 size> <key_modifier address>
+blob enc <Img3 addr> <Img3 dest addr> <Img3 size> <key_modifier address>
+.
+.
+.
+
+Save The Blobs created on Flash
+.
+.
+.
+
+# End of Encap Boot Script (This is one time only and must be replaced with decap Boot Script) 
+```
+
+#### 解密
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211251317900.png)
+
+```bash
+ # Get Images Blobs on DDR
+.
+.
+.
+# Decap the Blobs to get the actual images
+blob dec <Img1 blob addr> <Img1 dest addr> <expected Img1 size> <key_modifier address>
+blob dec <Img2 blob addr> <Img2 dest addr> <expected Img2 size> <key_modifier address>
+blob dec <Img3 blob addr> <Img3 dest addr> <expected Img3 size> <key_modifier address>
+.
+.
+.
+
+
+# Boot the Linux
+bootm <Kernel Fit Image Address>
+```
 
 # Terms and Abbreviations
 |名词|解释|
@@ -601,9 +754,9 @@ Error code可以参考： https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC
 |CSFF|OEM阶段fuse上的一个位域，参考：[Fuse Programming Scenarios](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-67557564-7BD5-4C5F-9686-59D54A487B88.html)|
 |OEM|原始设备制造商简称_OEM_，OEM是英文Original Equipment Manufacturer的缩|
 |POVDD|芯片上的一个引脚引脚 [Enable POVDD](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-0EFF85FB-9070-4D76-A926-B973CA6C8FB5.html)|
-|---|---|
-|---|---|
-|---|---|
-|---|---|
-|---|---|
+|CSF|NXP Chain of Trust image header 参考： [secure boot - Introduction](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-819A6D70-AAED-4B6C-BDA6-7A1B98B77784.html)|
+|ISBC|Internal Secure Boot Code，例如bootrom boot code|
+|ESBC|External Secure Boot Code，例如uboot|
+|ITS|FuSe上的一位，烧写该位代表secure boot使能于产品模式，而不是调试模式。参考： [Secure boot execution flow for Chain of Trust](https://docs.nxp.com/bundle/GUID-487B2E69-BB19-42CB-AC38-7EF18C0FE3AE/page/GUID-FE52492D-CCDA-4B64-A125-04220E4E1811.html)|
+|MC|Management Complex firmware, 用于管理内存，LS1046A没有这个固件。 参考： [Management Complex: How DPAA2 objects are created and managed](https://docs.nxp.com/bundle/GUID-87AD3497-0BD4-4492-8040-3F3BE0F2B087/page/GUID-691CA926-7D05-420D-80B5-696FAD7B8923.html)|
 |---|---|

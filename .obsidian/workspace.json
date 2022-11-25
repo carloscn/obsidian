@@ -4,37 +4,15 @@
     "type": "split",
     "children": [
       {
-        "id": "0f1aa7567e249729",
+        "id": "fedd9a4a67773b89",
         "type": "tabs",
         "children": [
           {
-            "id": "fcafb25d0f76d867",
+            "id": "8151544603964ffb",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
-                "mode": "source",
-                "source": true
-              }
-            }
-          }
-        ]
-      },
-      {
-        "id": "ffede8c7e7e62bb2",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "c1146ce7263372de",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
-                "mode": "preview",
-                "source": true
-              }
+              "type": "empty",
+              "state": {}
             }
           }
         ]
@@ -87,8 +65,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "a1cb8996e5b31f73",
@@ -104,7 +81,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -121,7 +97,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -143,9 +118,7 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md"
-              }
+              "state": {}
             }
           }
         ],
@@ -155,15 +128,15 @@
     "direction": "horizontal",
     "width": 291.5
   },
-  "active": "fcafb25d0f76d867",
+  "active": "8151544603964ffb",
   "lastOpenFiles": [
-    "embedded/[Embedded] ZYNQ-Secure Storage.md",
-    "embedded/[Embedded] NXP-LS1046的启动流程.md",
     "embedded/[Embedded] NXP-LS1046 secure boot.md",
+    "embedded/[embedded] NXP-LS1046的image操作.md",
+    "embedded/[Embedded] NXP-LS1046的启动流程.md",
+    "embedded/[Embedded] ZYNQ-Secure Storage.md",
     "security/3.0_Security_对称密钥算法加解密.md",
     "security/3.1_Security_对称密钥算法之AES.md",
     "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
-    "embedded/[embedded] NXP-LS1046的image操作.md",
     "[Embedded] NXP-LS1046的启动流程.md",
     "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
     "embedded/[Embedded] ZYNQ-Secure Boot Flow.md"

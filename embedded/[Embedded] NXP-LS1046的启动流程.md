@@ -316,6 +316,27 @@ boot.bin文件被fip.bin所依赖：
 7.  `$ make <platform>_tfa_defconfig`
 8.  `$ make`
 
+### 2.2.3 编译secure uboot
+
+和上面的区别在于，`$ make <platform>_tfa_defconfig` 和 `$ make <platform>_tfa_SECURE_BOOT_defconfig` 配置文件不同。
+
+You need to compile the `u-boot.bin` binary to build the `fip.bin` binary.
+Clone the `u-boot` repository and compile the U-Boot binary for TF-A.
+1.  `$ git clone https://source.codeaurora.org/external/qoriq/qoriq-components/u-boot.git`
+2.  `$ cd u-boot`
+3.  `$ git checkout -b <new branch name> <tag>`. For example, `$ git checkout -b LSDK-21.08 LSDK-21.08`
+4.  `$ export ARCH=arm64`
+5.  `$ export CROSS_COMPILE=aarch64-linux-gnu-`
+6.  `$ make distclean`
+7.  `$ make <platform>_tfa_SECURE_BOOT_defconfig`
+8.  `$ make`
+
+NOTE:If the make command shows the error "`*** Your GCC is older than 6.0 and is not supported`", ensure that you are using Ubuntu 18.04 64-bit version for building 21.08 U-Boot binary.
+
+The compiled secure U-Boot image, `u-boot.bin-tfa-secure-boot`, is available at `u-boot/`.
+
+
+
 ## 2.3 UEFI
 
 
