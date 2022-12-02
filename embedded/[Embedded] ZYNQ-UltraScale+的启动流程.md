@@ -350,6 +350,229 @@ FSBL operation includes the following four stages:
 
 这部分我们暂时不研究了。
 
+
+# 3. Golden image example
+
+Golden image是存在非易失性存储上的备用的image，当主引导image损坏时，ZYNQ的Multiboot机制可以引导该image。其设计目的是：在 ZYNQ 产品出厂后，如果要更新功能，像手机那样的下载更新，如果更新失败就会变成“砖”。Multiboot 的存在就是为了解决这一问题。将 ZYNQ 产品的出厂引导文件放在 QSPI FLASH  / SD Card的可引导的末端位置，这时的出厂引导文件就做 Golden Image，后面更新功能的时候将更新的引导文件放在 QSPI FLASH / SD Card的可引导的前端，也就是说 ZYNQ 启动后，先检索到更新的引导文件，然后引导其启动，如果该文件更新失败，就会从检索到的 Golden Image（出厂引导文件）启动，免得更新失败造成产品不可用。
+
+根据2.1.4小节，可以总结为ZYNQ的multiboot机制有以下特点：
+
+1.  Golden Image Search 当在闪存的底部（起始位置）没有找到有效的头文件时，BootROM 就会发起 Search 请求。BootROM 将在每 32KB 的偏移量处开始搜索一个有效的头。这种机制很慢，但很可靠。
+2.  BootROM Multiboot 这是由 FSBL 发起的，也就是 user。如果 BootROM 找到了一个有效的头文件并交给 FSBL，那么 FSBL 可以加载 Multiboot 寄存器并发出软复位。软复位后，BootROM 将使用 Multiboot 寄存器的地址来读取 BootROM 头文件。例如，当用户想要运行自检和诊断，然后跳转到实际的应用程序时，就会使用这种机制。
+3.  FSBL Fallback 为了从错误条件中恢复，FSBL 做了一个回退（Fallback），使 BootROM 能够加载另一个可引导镜像 (最初出现并处于已知良好状态的 golden image)，如果该镜像存在于闪存中。FSBL 更新一个 Multiboot 寄存器并进行软复位，以便 BootROM 执行并加载下一个当前有效的镜像。无论是否软复位，FSBL 都可能发生回退。
+
+## 3.1 使用 FSBL Fallback 来进行 Multiboot（non-sec）
+
+### 3.1.1 用例目的
+
+制作一个non-sec的用例来触发ZYNQ的fallback流程以启动golden image；了解golden image的制作过程；对fallback流程进行验证。
+
+### 3.1.2 实验方法
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281450633.png)
+
+准备两路引导，一路primary引导，另一路是golden引导。在primay引导中，故意制造一个错误，让其引导失败返回，验证ZYNQ是否进入golden image路径。
+
+在primary引导中：
+* 设定`zynq_mb_fsbl.elf`文件为primary FSBL （故障固件）;
+* 设定`r50-app-mb.elf`为 cortex-R5核心的普通应用程序（设定输出log为"primary image"，以此识别当前引导所在路径primary image）；
+* 设定`bl31.elf`为 TF-A 引导固件。
+
+在Golden引导中：
+* 设定`zynq_fsbl.elf`文件为primary FSBL （好用的固件）;
+* 设定`r50-app.elf`为 cortex-R5核心的普通应用程序（设定输出log为"golden image"，以此识别当前引导所在路径为golden image）；
+* 设定`bl31.elf`为 TF-A 引导固件（以primary为同一个文件）。
+
+实验判定：当ZYNQ启动之后，串口输出log为"golden image" 证明启动进入goledn image成功。
+
+### 3.1.3 实验过程
+
+我们要生成：
+* zynq_mb_fsbl.elf （故障的fsbl引导）
+* r50-app-mb.elf （输出log为 primary image的应用）
+* zynq_fsbl.elf （完整的fsbl引导）
+* r50-app.elf （输出log为 golden image的应用）
+
+#### 3.1.3.1 创建vitis FSBL工程
+
+在vitis创建FSBL工程，以生成：
+* zynq_mb_fsbl.elf （故障的fsbl引导）
+* zynq_fsbl.elf （完整的fsbl引导）
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281500041.png)
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281500864.png)
+
+###### 生成zynq_fsbl.elf 
+
+zynq_fsbl是一个完整的golden image，因此不需要对工程进行修改，直接编译，编译出的二进制elf文件命名为：zynq_fsbl.elf 留用。
+
+###### 生成zynq_mb_fsbl.elf 
+
+接着，我们需要生成一个故障的zynq_mb_fsbl.elf，可以在其源代码中，修改某个节点返回值，插桩制造一个错误。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281501224.png)
+
+我这里在136行，故意插入一个错误的代码，让其进入Fallback流程。然后对项目进行编译。生成的编译之后的elf文件，命名为：zynq_mb_fsbl.elf 留用。
+
+#### 3.1.3.2 创建Cortex-R5 hello world 应用
+
+在vitis创建Cortex-R5工程，以生成：
+* r50-app-mb.elf （输出log为 primary image的应用）
+* r50-app.elf （输出log为 golden image的应用）
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281505023.png)
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281505339.png)
+
+###### r50-app.elf 
+
+在工程中修改main函数中的log输出，标识是golden image：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281506373.png)
+
+编译出来的elf文件，重命名为r50-app.elf 留用。
+
+###### r50-app-mb.elf 
+
+在工程中修改main函数中的log输出，标识是primary image：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281508336.png)
+
+编译出来的elf文件，重命名为r50-app-mb.elf 留用。
+
+#### 3.1.3.3 建立primary引导
+
+该步骤需要使用bootgen工具，其bif为：
+```
+the_ROM_image:
+{
+    [bootloader, destination_cpu=a53-0] images/zynq_mb_fsbl.elf
+    [pmufw_image] images/xpfw.elf
+    [destination_cpu=a53-0] images/bl31.elf
+    [destination_cpu=a53-0] images/u-boot.elf
+    [destination_cpu=r5-0] images/r50-app-mb.elf
+}
+```
+
+生成命令：
+
+``` bash
+bootgen -image bif/boota53_mb.bif -arch zynqmp -w -o i boot.bin
+```
+
+#### 3.1.3.4 建立golden引导
+
+该步骤需要使用bootgen工具，其bif为：
+```
+the_ROM_image:
+{
+    [bootloader, destination_cpu=a53-0] images/zynq_fsbl.elf
+    [pmufw_image] images/xpfw.elf
+    [destination_cpu=a53-0] images/bl31.elf
+    [destination_cpu=a53-0] images/u-boot.elf
+    [destination_cpu=r5-0] images/r50-app.elf
+}
+```
+
+生成命令：
+
+``` bash
+bootgen -image bif/boota53.bif -arch zynqmp -w -o i boot0001.bin
+cp -r boot0001.bin boot0002.bin
+```
+
+#### 3.1.3.5 拷贝到SD卡 boot分区
+
+boot.bin 和 boot0001.bin 和 boot0002.bin 复制到SD卡的boot分区，大功告成。
+
+### 3.1.3 实验结果
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281512983.png)
+
+## 3.2 使用 FSBL Fallback 来进行 Multiboot（secure）
+
+基于3.1 non-sec的实验，现在对所有的image进行加密，需要注意两点：
+
+>1. Multiboot and fallback boot images(boot.bin, boot000x.bin) should be made with using same key in encryption for Secure boot mode.
+2. Multiboot and fallback boot images(boot.bin, boot000x.bin) should be made with using same key in authentication for Secure boot mode.
+
+我们的images还是利用3.1实验中的images：
+* zynq_mb_fsbl.elf （故障的fsbl引导）
+* r50-app-mb.elf （输出log为 primary image的应用）
+* zynq_fsbl.elf （完整的fsbl引导）
+* r50-app.elf （输出log为 golden image的应用）
+
+除此之外还需要准备加密的key和签名的私钥：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281527908.png)
+
+### 3.2.1 实验步骤
+
+#### 3.2.1.1 建立primary引导
+
+该步骤需要使用bootgen工具，其bif为：
+```
+the_ROM_image:
+{
+    [pskfile]keys/psk.pem
+    [sskfile]keys/ssk.pem
+    [keysrc_encryption] bbram_red_key
+    [auth_params]spk_id = 0; ppk_select = 0
+    [fsbl_config] a53_x64, bh_auth_enable
+    [bootloader, destination_cpu=a53-0, authentication = rsa, encryption = aes, aeskeyfile = keys/fsbl.nky] images/zynq_mb_fsbl.elf
+    [pmufw_image] images/xpfw.elf
+    [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] images/bl31.elf
+    [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] images/u-boot.elf
+    [destination_cpu=r5-0, authentication=rsa, encryption=aes, aeskeyfile = keys/bitstream.nky] images/r50-app-mb.elf
+}
+```
+
+生成命令：
+
+``` bash
+bootgen -image bif/boota53_mb.bif -arch zynqmp -w -o i boot.bin
+```
+
+#### 3.2.1.2 建立golden引导
+
+该步骤需要使用bootgen工具，其bif为：
+```
+the_ROM_image:
+{
+    [pskfile]keys/psk.pem
+    [sskfile]keys/ssk.pem
+    [keysrc_encryption] bbram_red_key
+    [auth_params]spk_id = 0; ppk_select = 0
+    [fsbl_config] a53_x64, bh_auth_enable
+    [bootloader, destination_cpu=a53-0, authentication = rsa, encryption = aes, aeskeyfile = keys/fsbl.nky] images/zynq_fsbl.elf
+    [pmufw_image] images/xpfw.elf
+    [destination_cpu=a53-0, exception_level=el-3, trustzone, authentication = rsa] images/bl31.elf
+    [destination_cpu=a53-0, exception_level=el-2, authentication = rsa] images/u-boot.elf
+    [destination_cpu=r5-0, authentication=rsa, encryption=aes, aeskeyfile = keys/bitstream.nky] images/r50-app.elf
+}
+```
+
+生成命令：
+
+``` bash
+bootgen -image bif/boota53.bif -arch zynqmp -w -o i boot0001.bin
+cp -r boot0001.bin boot0002.bin
+```
+
+#### 3.2.1.3 拷贝到SD卡 boot分区
+
+boot.bin 和 boot0001.bin 和 boot0002.bin 复制到SD卡的boot分区，大功告成。
+
+### 3.2.2 实验结果
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202211281530695.png)
+
+## 3.3 总结
+
+到此，我们完成了non-sec和sec的Golden image的实验。
+
+
 # Ref
 [^1]:[独家详解Intel主板下的『LockStep』内存模式，以及为何开启它能让 ECC 内存比可靠更可靠](https://zhuanlan.zhihu.com/p/445604035)
 [^2]:[Zynq-UltraScale-Device-Technical-Reference-Manual](https://docs.xilinx.com/r/en-US/ug1085-zynq-ultrascale-trm/Zynq-UltraScale-Device-Technical-Reference-Manual)

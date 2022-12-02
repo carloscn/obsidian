@@ -263,6 +263,7 @@ uni_sign tool能够被使用如下：
 
 参考： https://docs.nxp.com/bundle/GUID-3FFCCD77-5220-414D-8664-09E6FB1B02C6/page/GUID-A07DA501-2E7C-41FC-B635-3AD1F917A5D0.html
 
+
 ### sign_embed
 
 把sign的结果嵌入到header里面则需要使用这个工具。

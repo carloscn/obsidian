@@ -823,7 +823,6 @@ the_ROM_image:
 ## 2.4 使用HSM模式
 
 
-
 # 3. Secure boot Low-Level Design
 
 关于secure boot的low level design（具体设计细节），最重要的就是对于数据的打包，包含：

@@ -11,8 +11,30 @@
             "id": "8151544603964ffb",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {}
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[Embedded] NXP-LS1046的启动流程.md",
+                "mode": "preview",
+                "source": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "24c173b3a4dc053a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a949a0e919ed647f",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[Embedded] NXP-LS1046 secure boot.md",
+                "mode": "preview",
+                "source": true
+              }
             }
           }
         ]
@@ -81,6 +103,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "embedded/[Embedded] NXP-LS1046的启动流程.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -97,6 +120,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "embedded/[Embedded] NXP-LS1046的启动流程.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -118,7 +142,9 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {}
+              "state": {
+                "file": "embedded/[Embedded] NXP-LS1046的启动流程.md"
+              }
             }
           }
         ],
@@ -131,14 +157,14 @@
   "active": "8151544603964ffb",
   "lastOpenFiles": [
     "embedded/[Embedded] NXP-LS1046 secure boot.md",
-    "embedded/[embedded] NXP-LS1046的image操作.md",
     "embedded/[Embedded] NXP-LS1046的启动流程.md",
+    "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
     "embedded/[Embedded] ZYNQ-Secure Storage.md",
+    "embedded/[Embedded] ZYNQ-UltraScale+的启动流程.md",
+    "embedded/[Embedded] ZYNQ-Secure Boot Flow.md",
+    "embedded/[embedded] NXP-LS1046的image操作.md",
     "security/3.0_Security_对称密钥算法加解密.md",
     "security/3.1_Security_对称密钥算法之AES.md",
-    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md",
-    "[Embedded] NXP-LS1046的启动流程.md",
-    "embedded/[Embedded] ZYNQ-使用petalinux建立启动引导项.md",
-    "embedded/[Embedded] ZYNQ-Secure Boot Flow.md"
+    "security/3.2_Security_对称密钥算法之MAC（CMAC + HMAC ）.md"
   ]
 }
