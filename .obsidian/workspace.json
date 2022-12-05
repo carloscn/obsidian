@@ -1,22 +1,18 @@
 {
   "main": {
-    "id": "f1d33c73599def3b",
+    "id": "c7d110f0de79d45a",
     "type": "split",
     "children": [
       {
-        "id": "aa144adce0edef95",
+        "id": "82771769d874e148",
         "type": "tabs",
         "children": [
           {
-            "id": "103e1c2d9a69bbf4",
+            "id": "c07d4ed11bc7ff4b",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "dsp/DSP-F2812的时钟和系统控制.md",
-                "mode": "source",
-                "source": true
-              }
+              "type": "empty",
+              "state": {}
             }
           }
         ]
@@ -25,15 +21,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "83fe8c61f2a4de3a",
+    "id": "e87552458da6b802",
     "type": "split",
     "children": [
       {
-        "id": "9dc7d71554ba3f97",
+        "id": "18626f6e64c9f89f",
         "type": "tabs",
         "children": [
           {
-            "id": "c600cfdeefef4cbf",
+            "id": "8d44029d27037dc1",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -43,7 +39,7 @@
             }
           },
           {
-            "id": "3ba9a607d16221b5",
+            "id": "495dfd134411ebde",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -58,7 +54,7 @@
             }
           },
           {
-            "id": "d6062ba33fef5790",
+            "id": "799a6d03b580d064",
             "type": "leaf",
             "state": {
               "type": "starred",
@@ -72,44 +68,42 @@
     "width": 300
   },
   "right": {
-    "id": "6a20d54721b034e6",
+    "id": "a1cb8996e5b31f73",
     "type": "split",
     "children": [
       {
-        "id": "39e2739e51bc4a51",
+        "id": "a4d5bf736662bd6e",
         "type": "tabs",
         "children": [
           {
-            "id": "7aff46ec9fdba433",
+            "id": "c100885d9b839aea",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "dsp/DSP-F2812的时钟和系统控制.md",
-                "collapseAll": false,
+                "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
                 "showSearch": false,
                 "searchQuery": "",
-                "backlinkCollapsed": false,
+                "backlinkCollapsed": true,
                 "unlinkedCollapsed": true
               }
             }
           },
           {
-            "id": "dce9e6680c338170",
+            "id": "c508499933a2b5e0",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "dsp/DSP-F2812的时钟和系统控制.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
             }
           },
           {
-            "id": "2a31da9f51279926",
+            "id": "89bd8e4148af24ad",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -120,28 +114,31 @@
             }
           },
           {
-            "id": "1e7897bb1e4235a7",
+            "id": "0f8727a823b2464a",
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "dsp/DSP-F2812的时钟和系统控制.md"
-              }
+              "state": {}
             }
           }
-        ]
+        ],
+        "currentTab": 3
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 291.5
   },
-  "active": "103e1c2d9a69bbf4",
+  "active": "c07d4ed11bc7ff4b",
   "lastOpenFiles": [
-    "dsp/DSP-F2812的事件管理器EV.md",
-    "dsp/DSP-F2812的通用输入输出多路复用器GPIO.md",
-    "dsp/DSP-F2812的中断系统.md",
-    "dsp/DSP-F2812的CMD文件.md",
-    "dsp/DSP-F2812的CPU定时器.md"
+    "bin_utils/10_ELF文件_objcpy.md",
+    "bin_utils/01_ELF文件_目标文件格式.md",
+    "bin_utils/02_ELF文件结构_浅析内部文件结构.md",
+    "bin_utils/03_ELF文件_静态链接.md",
+    "bin_utils/04_进程虚拟地址空间.md",
+    "bin_utils/09_ELF文件_基于ARMv7的Linux系统调用原理.md",
+    "bin_utils/06_Linux的动态共享库.md",
+    "bin_utils/07_ELF文件_堆和栈调用惯例以ARMv8为例.md",
+    "bin_utils/08_ELF文件_运行库（入口、库、多线程）.md",
+    "bin_utils/05_ELF文件_动态链接.md"
   ]
 }
