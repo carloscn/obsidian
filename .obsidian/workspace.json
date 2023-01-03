@@ -18,20 +18,33 @@
                 "source": true
               }
             }
-          }
-        ]
-      },
-      {
-        "id": "4bdc0ff80924217f",
-        "type": "tabs",
-        "children": [
+          },
           {
-            "id": "b1ffdaea350e772d",
+            "id": "f2f35386db75902c",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "makefile/01_Makefile_makefile_summary.md",
+                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          }
+        ],
+        "currentTab": 1
+      },
+      {
+        "id": "8efcc8263ac8e9ab",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9a589476902a30e0",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
                 "mode": "preview",
                 "source": true
               }
@@ -103,7 +116,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "makefile/01_Makefile_makefile_summary.md",
+                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -120,7 +133,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "makefile/01_Makefile_makefile_summary.md",
+                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -143,7 +156,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "makefile/01_Makefile_makefile_summary.md"
+                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md"
               }
             }
           }
@@ -154,8 +167,9 @@
     "direction": "horizontal",
     "width": 291.5
   },
-  "active": "c07d4ed11bc7ff4b",
+  "active": "f2f35386db75902c",
   "lastOpenFiles": [
+    "makefile/01_Makefile_makefile_summary.md",
     "bin_utils/10_ELF文件_objcpy.md",
     "bin_utils/01_ELF文件_目标文件格式.md",
     "bin_utils/02_ELF文件结构_浅析内部文件结构.md",
@@ -164,7 +178,6 @@
     "bin_utils/09_ELF文件_基于ARMv7的Linux系统调用原理.md",
     "bin_utils/06_Linux的动态共享库.md",
     "bin_utils/07_ELF文件_堆和栈调用惯例以ARMv8为例.md",
-    "bin_utils/08_ELF文件_运行库（入口、库、多线程）.md",
-    "bin_utils/05_ELF文件_动态链接.md"
+    "bin_utils/08_ELF文件_运行库（入口、库、多线程）.md"
   ]
 }
