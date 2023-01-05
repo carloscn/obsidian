@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "f4f6e53749a5739d",
+        "id": "3a5fe8a0fe8718e4",
         "type": "tabs",
         "children": [
           {
-            "id": "8eb2cd5ec78d7b20",
+            "id": "7905617cc95b6925",
             "type": "leaf",
             "state": {
               "type": "empty",
@@ -128,17 +128,17 @@
     "direction": "horizontal",
     "width": 291.5
   },
-  "active": "8eb2cd5ec78d7b20",
+  "active": "7905617cc95b6925",
   "lastOpenFiles": [
+    "design/embedded/[ZYNQ] Decrypting Partition by the Decrypt Agent Using PUF key.md",
+    "embedded/[Embedded] cross-compile the cryptsetup on Xilinx ZYNQ aarch64 platform.md",
+    "embedded/[Embedded] enabling the cryptsetup on ramdisk.md",
+    "embedded/[Embedded] NXP-LS1046的启动流程.md",
+    "embedded/[Embedded] x86-UEFI-Secure-Boot.md",
     "makefile/01_Script_makefile_summary.md",
     "makefile/01_Makefile_makefile_summary.md",
     "bin_utils/10_ELF文件_objcpy.md",
     "bin_utils/01_ELF文件_目标文件格式.md",
-    "bin_utils/02_ELF文件结构_浅析内部文件结构.md",
-    "bin_utils/03_ELF文件_静态链接.md",
-    "bin_utils/04_进程虚拟地址空间.md",
-    "bin_utils/09_ELF文件_基于ARMv7的Linux系统调用原理.md",
-    "bin_utils/06_Linux的动态共享库.md",
-    "bin_utils/07_ELF文件_堆和栈调用惯例以ARMv8为例.md"
+    "bin_utils/02_ELF文件结构_浅析内部文件结构.md"
   ]
 }
