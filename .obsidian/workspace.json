@@ -4,50 +4,15 @@
     "type": "split",
     "children": [
       {
-        "id": "82771769d874e148",
+        "id": "f4f6e53749a5739d",
         "type": "tabs",
         "children": [
           {
-            "id": "c07d4ed11bc7ff4b",
+            "id": "8eb2cd5ec78d7b20",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "makefile/01_Makefile_makefile_summary.md",
-                "mode": "source",
-                "source": true
-              }
-            }
-          },
-          {
-            "id": "f2f35386db75902c",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
-                "mode": "source",
-                "source": true
-              }
-            }
-          }
-        ],
-        "currentTab": 1
-      },
-      {
-        "id": "8efcc8263ac8e9ab",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "9a589476902a30e0",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
-                "mode": "preview",
-                "source": true
-              }
+              "type": "empty",
+              "state": {}
             }
           }
         ]
@@ -116,7 +81,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -133,7 +97,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -155,9 +118,7 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "embedded/[Embedded] cryptsetup on ZYNQ.md"
-              }
+              "state": {}
             }
           }
         ],
@@ -167,8 +128,9 @@
     "direction": "horizontal",
     "width": 291.5
   },
-  "active": "f2f35386db75902c",
+  "active": "8eb2cd5ec78d7b20",
   "lastOpenFiles": [
+    "makefile/01_Script_makefile_summary.md",
     "makefile/01_Makefile_makefile_summary.md",
     "bin_utils/10_ELF文件_objcpy.md",
     "bin_utils/01_ELF文件_目标文件格式.md",
@@ -177,7 +139,6 @@
     "bin_utils/04_进程虚拟地址空间.md",
     "bin_utils/09_ELF文件_基于ARMv7的Linux系统调用原理.md",
     "bin_utils/06_Linux的动态共享库.md",
-    "bin_utils/07_ELF文件_堆和栈调用惯例以ARMv8为例.md",
-    "bin_utils/08_ELF文件_运行库（入口、库、多线程）.md"
+    "bin_utils/07_ELF文件_堆和栈调用惯例以ARMv8为例.md"
   ]
 }
