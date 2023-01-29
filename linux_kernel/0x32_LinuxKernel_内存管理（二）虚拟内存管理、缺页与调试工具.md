@@ -286,6 +286,23 @@ code: https://github.com/carloscn/clab/blob/master/linux/test_memory/malloc_fail
 -   malloc 通过 brk() 方式申请的内存，free 释放内存的时候，并不会把内存归还给操作系统，而是缓存在 malloc 的内存池中，待下次使用；
 -   malloc 通过 mmap() 方式申请的内存，free 释放内存的时候，会把内存归还给操作系统，内存得到真正的释放。
 
+#### 示例：ZYNQ虚拟内存转物理内存
+
+busybox有个工具devmem，可以在linux用户空间直接访问物理内存的数据。我们从devmem中提取一些关键的程序，来使用mmap来完成虚拟内存到物理内存的转换。
+
+源代码https://github.com/carloscn/clab/blob/master/linux/test_mmap/devmem.c
+
+我们做个实验，在uboot里面使用`mw.w 0x50000000 0xaaaa` 写入内存
+
+![image](https://user-images.githubusercontent.com/16836611/215319467-6499e8ba-f0e8-4e6d-8ecd-159fb6112fd8.png)
+
+然后在Linux用户空间读入内存 `./devmem.elf read 0x50000000 10`
+
+![image](https://user-images.githubusercontent.com/16836611/215319516-aa295a85-e378-4d33-a095-9370a0798f3c.png)
+
+可以看到我们的数据。
+
+
 #### 为什么不全部使用 mmap 来分配内存?
 
 因为向操作系统申请内存，是要通过系统调用的，执行系统调用是要进入内核态的，然后在回到用户态，运行态的切换会耗费不少时间。
@@ -441,6 +458,8 @@ top和vmstat
 * 2022-9-13：
 	* 增加vmalloc和kmalloc的比较介绍；
 	* 增加线程池的概念，分别介绍内核中线程池的应用，及用户空间tmalloc线程池分配库。
+* 2023-1-29:
+	* 增加mmap虚拟内存转物理内存的方法。
 
 # Ref
 [^1]:[Linux可执行文件与进程的虚拟地址空间](https://blog.csdn.net/weixin_44395686/article/details/105907000)

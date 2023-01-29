@@ -3,7 +3,6 @@ The Embedded Boards initialization (EBIM) is a module of the X-Shield. It is use
 -   xilinx-zynq
 -   nxp-s32g
 -   nxp-layerscape
-    
 
 # 1. The EBIM High-Level Design
 
@@ -130,3 +129,4 @@ The img mode will recognize that the input file is an img format file and only r
 ## 2.3 The class of Flash Operation
 
 TODO
+
