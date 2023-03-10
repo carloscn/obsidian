@@ -13,25 +13,40 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "design/qt/Module of the Embedded Boards initialization.md",
+                "file": "vehicle/Uptane.md",
                 "mode": "source",
                 "source": true
+              }
+            }
+          },
+          {
+            "id": "df05f4078c11d2e2",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Untitled.canvas",
+                "viewState": {
+                  "x": 0,
+                  "y": 0,
+                  "zoom": 0
+                }
               }
             }
           }
         ]
       },
       {
-        "id": "52d5a69fc81274ec",
+        "id": "f1984225d777e074",
         "type": "tabs",
         "children": [
           {
-            "id": "a972f522e4a8421e",
+            "id": "21777d24080e3e3d",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "design/qt/Module of the Embedded Boards initialization.md",
+                "file": "vehicle/Uptane.md",
                 "mode": "preview",
                 "source": true
               }
@@ -103,7 +118,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "design/qt/Module of the Embedded Boards initialization.md",
+                "file": "vehicle/Uptane.md",
                 "collapseAll": true,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -120,7 +135,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "design/qt/Module of the Embedded Boards initialization.md",
+                "file": "vehicle/Uptane.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -143,7 +158,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "design/qt/Module of the Embedded Boards initialization.md"
+                "file": "vehicle/Uptane.md"
               }
             }
           }
@@ -166,6 +181,9 @@
   },
   "active": "9a589476902a30e0",
   "lastOpenFiles": [
+    "design/qt/Module of the Embedded Boards initialization.md",
+    "Untitled.canvas",
+    "vehicle/Uptane.md",
     "design/Untitled.md",
     "embedded/[Embedded] cryptsetup on ZYNQ.md",
     "makefile/01_Makefile_makefile_summary.md",
@@ -173,8 +191,6 @@
     "bin_utils/01_ELF文件_目标文件格式.md",
     "bin_utils/02_ELF文件结构_浅析内部文件结构.md",
     "bin_utils/03_ELF文件_静态链接.md",
-    "bin_utils/04_进程虚拟地址空间.md",
-    "bin_utils/09_ELF文件_基于ARMv7的Linux系统调用原理.md",
-    "bin_utils/06_Linux的动态共享库.md"
+    "bin_utils/04_进程虚拟地址空间.md"
   ]
 }
