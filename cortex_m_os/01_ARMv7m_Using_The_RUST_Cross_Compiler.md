@@ -234,7 +234,7 @@ runner = "qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semiho
 `cargo run target/thumbv7m-none-eabi/debug/hello-world`
 
 
-## 2.3 调试
+## 2.3 QEMU调试
 
 调试的第一步是在调试模式下启动QEMU：
 
@@ -300,6 +300,182 @@ Remote debugging using :3333 Reset () at $REGISTRY/cortex-m-rt-0.6.1/src/lib.rs:
 `quit`
 
 具体可参考： https://gist.github.com/carloscn/f628bb08453cdda3a33de58caa06ba1f
+
+## 2.4 Target Hardware
+
+在本节中，我们将使用我们的参考硬件STM32F3DISCOVERY。该开发板包含STM32F303VCT6微控制器。该微控制器具有：
+
+* 一个Cortex-M4F内核，其中包括一个单精度FPU
+* 闪存的256 KiB位于地址`0x0800_0000`。
+* 位于地址`0x2000_0000`的`40KiBRAM`。 (还有另一个RAM区域，为简单起见，我们将其忽略)。
+
+### 2.4.1 Hello World程序
+
+参考# 2. Hello World。
+
+这次用得是Cortex-M4F内核,所以target使用`thumbv7em-none-eabihf` 。
+
+```toml
+target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
+```
+
+确保`debug::exit()`调用已被注释掉或删除，因为他仅用于QEMU环境。
+
+```rust
+#[entry]
+fn main() -> ! {
+    hprintln!("Hello, world!").unwrap();
+
+    // exit QEMU
+    // NOTE do not run this on hardware; it can corrupt OpenOCD state
+    // debug::exit(debug::EXIT_SUCCESS);
+
+    loop {}
+}
+```
+
+### 2.4.2 Linker File
+
+第二步是将存储区域信息输入到“memory.x”文件中。
+
+```bash
+/* Linker script for the STM32F303VCT6 */
+MEMORY
+{
+  /* NOTE 1 K = 1 KiBi = 1024 bytes */
+  FLASH : ORIGIN = 0x08000000, LENGTH = 256K
+  RAM : ORIGIN = 0x20000000, LENGTH = 40K
+}
+```
+
+现在，您可以像以前一样使用`cargo build`交叉编译程序，并使用`cargo-binutils`检查二进制文件。 `cortex-m-rt` crate可处理让您的芯片运行所需的所有魔术,几乎所有Cortex-M CPU都以相同的方式引导。
+
+`$ cargo build --example hello`
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304180953239.png)
+
+### 2.4.3 burning and debugging
+
+使用micro-USB电缆将开发板连接到笔记本电脑/PC。开发板有两个USB接口。请使用位于板边缘中央的标有“USB ST-LINK”的USB接口。
+
+还要检查ST-LINK跳线是否连接。见下图； ST-LINK标头用红色圈出。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304181000915.png)
+
+现在运行以下命令:
+
+```console
+$ openocd -f interface/stlink-v2-1.cfg -f target/stm32f3x.cfg
+```
+
+您应该获得以下输出，并且阻塞控制台:
+
+```
+Open On-Chip Debugger 0.10.0
+Licensed under GNU GPL v2
+For bug reports, read
+        http://openocd.org/doc/doxygen/bugs.html
+Info : auto-selecting first available session transport "hla_swd". To override use 'transport select <transport>'.
+adapter speed: 1000 kHz
+adapter_nsrst_delay: 100
+Info : The selected transport took over low-level target control. The results might differ compared to plain JTAG/SWD
+none separate
+Info : Unable to match requested speed 1000 kHz, using 950 kHz
+Info : Unable to match requested speed 1000 kHz, using 950 kHz
+Info : clock speed 950 kHz
+Info : STLINK v2 JTAG v27 API v2 SWIM v15 VID 0x0483 PID 0x374B
+Info : using stlink api v2
+Info : Target voltage: 2.919881
+Info : stm32f3x.cpu: hardware has 6 breakpoints, 4 watchpoints
+```
+
+在另一个终端上，也从模板的根目录运行GDB。
+
+`$ <gdb> -q target/thumbv7em-none-eabihf/debug/examples/hello`
+
+接下来，将GDB连接到OpenOCD，OpenOCD正在监听端口3333。
+
+`(gdb) target remote :3333 Remote debugging using :3333 0x00000000 in ?? ()`
+
+现在，使用`load`命令将程序加载到微控制器上。
+
+`(gdb) load Loading section .vector_table, size 0x400 lma 0x8000000 Loading section .text, size 0x1e70 lma 0x8000400 Loading section .rodata, size 0x61c lma 0x8002270 Start address 0x800144e, load size 10380 Transfer rate: 17 KB/sec, 3460 bytes/write.`
+
+现在程序已加载。该程序需要半主机支持，因此在进行任何半主机调用之前，我们必须告诉OpenOCD启用半主机。您可以使用“monitor”将命令发送到OpenOCD。
+
+`(gdb) monitor arm semihosting enable semihosting is enabled`
+
+> 您可以通过调用`monitor help`命令来查看所有OpenOCD命令。
+
+像之前一样，我们可以使用断点和`continue`跳过所有跳转到`main`函数。
+
+`(gdb) break main Breakpoint 1 at 0x8000d18: file examples/hello.rs, line 15.  (gdb) continue Continuing. Note: automatically using hardware breakpoints for read-only addresses.  Breakpoint 1, main () at examples/hello.rs:15 15          let mut stdout = hio::hstdout().unwrap();`
+
+> **注意**如果执行`continue`命令后GDB阻塞了终端而不是停在了断点上，则可能需要仔细检查`memory.x`文件中的内存区域信息是否配置正确(起始地址和长度)。
+
+用`next`命令替代刚刚的`continue`,应该也会产生相同的结果。
+
+`(gdb) next 16          writeln!(stdout, "Hello, world!").unwrap();  (gdb) next 19          debug::exit(debug::EXIT_SUCCESS);`
+
+此时，您应该看到"Hello, world!" 打印在OpenOCD控制台上，等等。
+
+`$ openocd (..) Info : halted: PC: 0x08000e6c Hello, world! Info : halted: PC: 0x08000d62 Info : halted: PC: 0x08000d64 Info : halted: PC: 0x08000d66 Info : halted: PC: 0x08000d6a Info : halted: PC: 0x08000a0c Info : halted: PC: 0x08000d70 Info : halted: PC: 0x08000d72`
+
+发出另一个`next`将使处理器执行`debug::exit`。这会像断点一样挂起程序的执行：
+
+`(gdb) next  Program received signal SIGTRAP, Trace/breakpoint trap. 0x0800141a in __syscall ()`
+
+OpenOCD控制台将会打印如下内容：
+
+`$ openocd (..) Info : halted: PC: 0x08001188 semihosting: *** application exited *** Warn : target not halted Warn : target not halted target halted due to breakpoint, current mode: Thread xPSR: 0x21000000 pc: 0x08000d76 msp: 0x20009fc0, semihosting`
+
+但是，在微控制器上运行的程序尚未终止，您可以使用`continue`或类似命令将其恢复。
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304180959641.png)
+
+
+现在调试需要更多步骤，因此我们将所有这些步骤打包到一个名为`openocd.gdb`的GDB脚本中。
+
+`$ cat openocd.gdb`
+
+```
+target remote :3333
+
+# print demangled symbols
+set print asm-demangle on
+
+# detect unhandled exceptions, hard faults and panics
+break DefaultHandler
+break HardFault
+break rust_begin_unwind
+
+monitor arm semihosting enable
+
+load
+
+# start the process but immediately halt the processor
+stepi
+```
+
+现在运行 `<gdb> -x openocd.gdb $program`将立即将GDB连接到OpenOCD，启用半主机，加载程序并开始执行。
+
+您也可以将`<gdb> -x openocd.gdb`转换为自定义运行器，这样`cargo run`会自动构建程序并开始GDB会话。该运行器已包含在`.cargo/config`中，只不过现在是被注释掉的状态。
+
+`$ head -n10 .cargo/config`
+
+```
+[target.thumbv7m-none-eabi]
+# uncomment this to make `cargo run` execute programs on QEMU
+# runner = "qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+# uncomment ONE of these three option to make `cargo run` start a GDB session
+# which option to pick depends on your system
+runner = "arm-none-eabi-gdb -x openocd.gdb"
+# runner = "gdb-multiarch -x openocd.gdb"
+# runner = "gdb -x openocd.gdb"
+```
+
+`$ cargo run`
 
 # Ref
 
