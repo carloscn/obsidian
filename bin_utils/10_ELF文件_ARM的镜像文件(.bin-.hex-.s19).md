@@ -83,6 +83,8 @@ binary的格式非常简单，似乎没有什么严谨的方式来表示一个ho
 
 注意大端模式和小端模式在这个binary格式上面有很大的影响力。
 
+#### 栈
+
 在我的demo中，如图所示
 
 ![](https://raw.githubusercontent.com/carloscn/images/main/typora202304281450943.png)
@@ -113,6 +115,23 @@ binary的格式非常简单，似乎没有什么严谨的方式来表示一个ho
 0x2000 + 0x3d000 - 0x1000 + 0x1000  = 0x3f000
 
 栈指针的位置就能按照上面的方法推算出来。
+
+#### vector
+
+向量表在map文件中指向了绝对的0x2000的位置，也就是text头的位置。根据 https://github.com/carloscn/blog/issues/127 的2.4 中断向量，CortexM中的确是这样处理的。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304281511949.png)
+
+我们可以看下linker文件中，把vec放在text的头部：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304281513154.png)
+
+而text是映射到了RAM排列的第一个位置：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202304281515108.png)
+
+所以RAM排列也很重要。
+
 
 ## 1.2 Intel Hex[^5]
 
