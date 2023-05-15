@@ -2,6 +2,8 @@
 
 Cortex-M3（2006年）和Cortex-M4（2010）都是32位架构，寄存器和数据通路、总线接口都是32位。M系列使用指令集架构（ISA，Instruction Set Architecture）叫做Thumb ISA，它是基于Thumb-2 Technology（支持16位/32位指令）。
 
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305081034113.png)
+
 M系列的处理器从**架构层面**有以下特点：
 *  三级流水线设计；
 * **哈佛总线架构**，且具有统一的存储器空间:指令和地址总线使用相同的地址空间；
@@ -33,6 +35,8 @@ M3和M4处理器有很多类似的地方，两个处理器指令一样，都属�
 M0和M0+以及M1基于ARMv6-M，他们指令集较小。M1专门为FPGA设计，具有TCM[^1]（Tightly Coupled Memory）有助于FPGA内的存储器使用。对于普通的I/O控制任务，由于M0和M0+有着低门数，他们具有良好的能耗效率（这个也是为什么M系列适合控制的原因），然而应用要进行一些复杂的数据处理，则可能需要花费更多的指令周期。
 
 > @carloscn引申：这个其实也是为什么DSP在控制领域还会有市场，即便是ARM控制能力已经很强了。在控制行业，要求高频响较高，所以对于器件低的逻辑门数能够在控制频响层面提供较好的支持，能耗也低。DSP在运算上补足了类似于PID控制算法中涉及的运算，而且在正弦余弦乘法上有着得天独厚的优势。过强的控制能力并不是一个很好的选择，这会导致更低的频响和更高的能耗。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305081034383.png)
 
 # 2. MPU和MCU区别
 

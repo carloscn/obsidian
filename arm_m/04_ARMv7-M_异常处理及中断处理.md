@@ -164,13 +164,141 @@ processor mode需要在reset handler里面做更改的。
 * 切换到RAM的reset handler。
 
 
-## 2.5 NVIC
+## 2.5 NVIC中断嵌套
+
+ARM是支持中断嵌套的， 那就是在一个中断发生期间，又来了一个中断，从这个功能上我们很容易想到，要实现嵌套功能至少：
+
+* 中断必须有方法能够被使能和关闭；
+* 中断优先级必须能够配置（否则不知道谁嵌套谁）；
+* 中断必须能够被pending和保存当前中断的现场信息（状态，返回地址等）；
+* 中断必须能够被激活并且恢复中断现场信息；
+
+为了能够实现上面的功能，NVIC通过寄存器编程的方式，来设定：
+* 中断enable bit位
+* pending 状态位
+* read only激活查询位
+
+处理器可以接收中断请求：
+
+* pending状态被设定；
+* 中断使能中；
+* 优先级高于当前执行中断。
+
+处于pending状态的中断，是等待处理器响应该中断。在一些实例中，有些处理中断一变成pending状态，处理器立刻处理该中断；有些则是处理器会处理更高等级的中断。这些就有区别于传统的ARM处理器，例如中断请求IRQ/FIQ必须持住中断请求直到处理器来处理它。而现在Cortex-M使用NVIC来处理器中断，只需要设定中断的状态机为Pending，处理器将会根据规则处理中断。
+
+如图所示，当一个处理器开始处理中断请求，中断的pending状态将会被自动的清除掉，然后再去进入相应的handler mode去处理中断。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081012314.png" width="90%" /></div> 
+
+当处理器开始处理中断，中断就处于激活状态。请注意，在中断的入口时序中，多个寄存器的值会被push进入到栈中。**这个过程叫做stacking**。于此同时，ISR的入口地址会被从vector table中取出来。
+
+在很多控制器的设计中，外设的中断通常是由一段时间的电平触发，这种状态下，在ISR中就不得不手动地清除中断请求。例如，当中断服务完成之后，处理器要从异常状态返回，寄存器的值要自动的从stack里面pop出来。
+
+当一个中断被激活的时候，你不可能再去释放一个相同的中断请求，需要等到上一个中断完成或者从异常状态返回。
+
+pending状态存储在pending寄存器里面，并且可以通过软件寻址到这个寄存器。因此，你可以通过软件来干预pending的状态。当处理器正在服务于一个高优先级的中断并且想要的中断pending被清除了，那么这个中断就不会被响应了。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081023222.png" width="80%" /></div> 
+
+如果一个外设中断频繁地被assert，并且软件尝试去清除pending状态，那么这个pending会被下一次中断覆盖掉。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081024943.png" width="80%" /></div> 
+
+如果一个中断在它被服务完之后，中断还不断的去assert。这个中断会再次进入到pending状态，并且处理器还会去处理它。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081025321.png" width="80%" /></div> 
+
+对于周期性的脉冲中断请求，在处理器开始处理之前，这些请求被认定为只有一个请求。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081027688.png" width="80%" /></div> 
+
+一个中断的pending状态恰好被再一次设定当处理器正在服务（因为pending状态在服务之前就会被处理器自动清除），处理器还会进行处理。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305081029251.png" width="80%" /></div> 
+
+请注意，pending状态是可以被设定的，即便是这个中断处于disable状态。当这个中断被使能的时候，那么就满足了处理器处理中断的条件就会被处理。换句话说，切换中断的开关不影响pending状态。如果这样的话，需要十分小心，当开启中断之前，需要将中断的状态机手动清除掉。
+
+## 2.6 异常处理过程
+
+Cortex-M的异常处理，相比于ARMv8比较简单。 [10_ARMv8_异常处理（一） - 入口与返回、栈选择、异常向量表](https://github.com/carloscn/blog/issues/47#top) 没有EL等级的切换。
+
+这一个小结从四个步骤来讨论M核的异常处理的过程，分别是：
+* 进入异常的条件
+* 异常入口
+* 异常handler
+* 异常返回
+
+### 2.6.1 异常条件
+
+当处理器满足以下所有的条件的时候，会激发进入异常：
+* 处理器正在running状态（不是halted或者reset状态）
+* 异常被使能（NMI和HardFaul异常比较特殊，它们always使能）
+* 当前assert的异常优先级高于现在执行的优先级
+* PRIMASK寄存器中没有mask当前的异常
+
+**注意`SVC`异常，如果SVC指令用于一个异常handler服务函数中，而这个异常handler的优先级大于等于SVC异常的优先级，那么此时会有HardFault异常产生**。
+
+### 2.6.7 异常现场保护
+
+过程如图所示：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305090849970.png" width="40%" /></div> 
+
+#### stacking registers
+
+进入异常的时候需要记录中断现场，包括返回的地址，选择的栈是什么。如果当前处理器处于Thread mode并且使用Process Stack Pointer（PSP）栈指针，此时记录中断现场则使用PSP栈指针。否则，则使用Main Stack Pointer （MSP）栈指针。Cortex-M是双栈指针结构，具体可参考：[02_ARMv7-M_编程模型与模式](https://github.com/carloscn/blog/issues/123)
+
+#### 取中断向量和执行handler
+
+需要拿到ISR函数的起始地址，这个过程可以和上一步并行完成，关于怎么取这个地址，可以参考 **2.4 中断向量**。
+
+拿到入口地址之后，就从该地址load中断handler的指令。
+
+#### 更新寄存器
+
+寄存器已经被备份了，备份的原因也是异常需要使用这些寄存器，在执行完上述操作之后，需要更新NVIC寄存器和一些核心寄存器。需要包含：
+
+* pending状态
+* 激活状态
+* PSR（Program Status Register）
+* LR （Link Register）
+* PC（Program Count）
+* SP（Stack Pointer）
+
+对于栈指针，MSP和PSP的使用，还是取决于进入异常时候的状态。对于PC，是跟随exception handler的；对于LR，会被注入一个非常特殊和重要的值`EXC_RETURN`，用于记录异常的返回地址。
+
+### 2.6.8 handler执行
+
+在handler中可以实现对于外设的一些业务逻辑。**当执行ISR的时候，此时此刻处理器已经处于Handler mode**。在Handler Mode：
+
+* 无论保存现场的栈指针是什么，都要切换MSP，使用主栈指针来操作；
+* 处理器进入特权模式
+
+当更高优先级的异常在执行当前的handler的时候出现了。新的异常将会被打断，这个叫做中断的嵌套。如果另一个优先级等于或者小于当前的优先级，此时新的中断状态机为pending状态，等待该中断完成之后才能切换到新的中断。
+
+在异常handler结束之后，异常应该返回，此时从LR寄存器中读出返回地址，并且加载到PC中，返回主函数。
 
 
+### 2.6.9 异常返回
 
-## 2.6 SCB
+在一些处理器架构中，会使用特殊的指令用于异常的返回。然后这就意味着异常handler不能使用C函数来编写。在ARM M系列的处理器中，异常返回机制被一个特殊的返回地址`EXC_RETURN`触发。这个值是在进入中断入口的时候，被保存在LR寄存器中产生的。当这个值被**一个允许异常返回的指令**写入到PC寄存器的时候，此时就会触发异常返回操作。
 
-## 2.7 特殊寄存器
+一个允许异常返回的指令，被列在下面：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305090908985.png)
+
+当异常返回机制被触发的时候，处理器会将之前在入口备份到stack的registers的值恢复，这个有个术语叫做Unstacking。除此之外，NVIC寄存器，和上面提到的寄存器也会被更新。Unstacking操作和恢复中断现场的过程可以并行执行的。
+
+用于异常返回的`EXC_RETURN`值可以用C语言写入。在程序中，C编译器会处理`EXC_RETURN`值。由于`EXC_RETURN`值的机制的设定，因此就不可能有一个正常的功能能够返回到0xF0000000 到 0xFFFFFFFF地址。然后，因为架构指定这些地址范围不能用于code属性，（XN Execute Never属性），所以这也没什么关系。
+
+## 2.7 中断寄存器配置
+
+### 2.7.1 NVIC寄存器
+
+### 2.7.2 SCB寄存器
+
+### 2.7.3 特殊寄存器
+
 
 ## 2.8 经典案例
 
