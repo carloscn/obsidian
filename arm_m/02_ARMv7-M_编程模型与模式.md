@@ -64,3 +64,35 @@ ARM这样设计的初衷也是为了安全考虑，基于一个基本的安全�
 <div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305151044134.png" width="80%" /></div> 
 
 还需要注意debug state。这个状态进入的点在于被debugger控制和停止了ARM处理器的运行。这个状态开放了寄存器值的外部读取和修改。
+
+### 1.1.2 Registers
+
+在M3/M4中ARM执行数据处理和控制依托于寄存器。这些寄存器组合成一个单元叫做register bank。参考[^1]，register bank里面包含很多register，
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160844392.png" width="80%" /></div> 
+
+在ARM的数据处理过程中，涉及数据处理就要频繁的访问寄存器，至少有一个原寄存器和目的寄存器。数据处理的过程通常是把数据从内存中加载到寄存器组的寄存器，数据处理完毕之后，需要把数据从寄存器中回写到内存中，这种架构通常称为“load-store”架构。这种情况也提高了运算的效率，因为数据在寄存器内进行运算不需要频繁的通过总线访问内存。但也需要注意，寄存器属于CPU内部的机制，在多核的SoC中，或者有DMA的存在，多个访问者挂载共用的内存中时候，这个时候如果两个CPU都在自己的寄存器中进行运算，那么就会发生数据错误。因此，我们需要用C语言的时候增加volatile关键字，告诉编译器，这个值访问的时候需要从memory中重新load。参考[Compiler optimization and the volatile keyword.md](https://gist.github.com/carloscn/354c7b91e49fa44110dafa1b8b2776c3)
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160853868.png" width="80%" /></div> 
+
+M3和M4的寄存器组有16个寄存器，他们中的13个是通用寄存器（R0-R12），剩下的是特殊寄存器（R13-R15）。
+
+#### R0-R12
+
+R0-R12寄存器是32位的通用寄存器。R0-R7也叫做low registers。由于指令集对于空间的限制，很多16-bit指令是可以访问low register的； 后8个寄存器 high register（R8-R12）能够被32-bit的指令访问和部分16-bit执行访问，例如MOV。要有一个意识，R0-R12上电之后的默认值是没有定义的（随机）。
+
+#### R13-SP
+
+R13是栈指针寄存器。栈指针寄存器主要适用于访问stack内存的，和栈指针寄存器打交道的指令也是PUSH/POP指令。[07_ELF文件_堆和栈调用惯例以ARMv8为例](https://github.com/carloscn/blog/issues/50#top) 在 1.2 不同架构出栈和入栈 中展了A32指令的PUSH和POP在函数调用过程中的作用。
+
+在ARM核的设定中，有两个不同的SP指针，一个是MSP（Main Stack Pointer）主要用于handler模式的栈指针，是上电后默认的指针；还有一个是Process Stack Pointer，用于thread模式。ARM选择哪个栈指针，是用过配置CONTROL寄存器进行的。
+
+两个SP指针都是32位的。SP的最低的2个比特位总是，如果对这两个位强行写入的话总是被置为0，换句话说，SP永远是4 bytes aligned。在M处理器中，PUSH和POP指令操作的永远都是32位的，传输数据也必须是32位对齐的。
+
+在大多数的应用场景中，如果没有嵌入式操作系统的话，没有必要使用PSP。所有的操作全部在内核空间即可。PSP使用的场景经常是需要引入OS kernel和任务分开。PSP的初始值undfined，MSP的初始值通常是reset handler的地址。
+
+
+
+
+# Ref
+[^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
