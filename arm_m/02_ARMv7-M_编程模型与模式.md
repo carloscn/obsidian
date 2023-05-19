@@ -91,8 +91,48 @@ R13是栈指针寄存器。栈指针寄存器主要适用于访问stack内存的
 
 在大多数的应用场景中，如果没有嵌入式操作系统的话，没有必要使用PSP。所有的操作全部在内核空间即可。PSP使用的场景经常是需要引入OS kernel和任务分开。PSP的初始值undfined，MSP的初始值通常是reset handler的地址。
 
+#### R14-link register(LR)
+
+R14也叫做LR寄存器。这个作用就是当调用一个函数的时候存储上一个函数的返回地址。一个函数在执行结束的时候，这个函数需要返回到调用这个函数的位置，此时就是从LR寄存器读取的地址，那么在进入调用函数之前，调用那一时刻，需要记录该位置PC指针到LR寄存器。在我们C语言中，常常是函数嵌套着函数，如果多层级的函数调用，那么返回地址会被压入栈（memory）中进行记录，否则会找不到回家的路。
+
+以上是关于一般函数的调用。特殊的，对于异常处理的返回也是使用LR寄存器，这个值并不是从栈中还原，而是从`EXC_RETURN`这个寄存器自动还原。参考 [04_ARMv7-M_异常处理及中断处理](https://github.com/carloscn/blog/issues/127#top)
 
 
+#### R15-Program Counter (PC)
+
+R15是著名的PC寄存器（可读可写的）。注意，PC读取返回和指令地址通常都是+4（这个设计是用于兼容ARM7TDMI需求）。写入PC的值会造成一个branch Operation。
+
+> **如何理解Branch Operation？**
+>
+> 这是一个ARM的术语，https://developer.arm.com/documentation/ddi0406/c/Application-Level-Architecture/The-Instruction-Sets/Branch-instructions 我们参考一下ARMv7-A的概念。Branch Operation，理解的话大概意思就是跳转。当我们写入PC值的时候，程序执行路径就会被改变，就会跳转过去。
+
+注意，因为指令必须是半字对齐（16位）或者字对齐（32位），所以在二进制数值上的数学意义体现就是PC的最低LSB为0。但是也要注意，并非是SP寄存器一样，最低两位永远是0。PC值的最低为也可以是1，例如当你使用branch/memroy read指令更新PC的时候，首先要设定PC为的LSB为1来指示ARM的状态为Thumb state。否则，就会出现一个异常错误。这个feature已经被编译器自动的隐藏掉了，但是我们要知道PC上是这样处理的。
+
+我们来看一下ARM的流水线结构下的PC指向问题：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305170931913.png" width="80%" /></div> 
+
+上图所示，在执行`add r0, r1, #5`指令时，第二条指令正在译码阶段，而第三条指令正在取指阶段。在执行第一条指令时，PC寄存器应指向第三条指令。也即，当处理器为三级流水线结构时，PC寄存器总是指向随后的第三条指令。
+
+* 当处理器处于ARM状态时，每条ARM指令为4个字节，所以PC寄存器的值为当前指令地址 + 8字节
+* 当处理器处于Thumb状态时，每条Thumb指令为2字节，所以PC寄存器的值为当前指令地址 + 4字节
+
+关于PC寄存器需要注意的一点是：**当使用指令STR或STM对R15进行保存时，保存的可能是当前指令地址加8或当前指令地址加12。具体是加8还是加12，取决于具体的处理器设计。但是，同一个芯片只能是其中一种的方案，即只能是加8或加12中的一种**。
+
+可以通过如下的代码确定处理器采用的那种方式：
+
+```Assembly
+SUB R1,PC, #4    ;R1中存放STR指令地址 
+STR PC,[R0]      ;用STR指令将PC保存到R0指向的地址单元中，PC=STR指令地址+偏移量（偏移量为8或者12）。 
+LDR R0,[R0]    ;读取STR指令地址+偏移量的值 
+SUB R0,R0,R1    ; STR指令地址+偏移量的值减去STR指令的地址，得到偏移量值（8或者12）
+```
+
+在大多数情况下，PC更新（branch和call的发生）由一些专门的指令来处理例如b之类的，换句话说，只有专门的指令才涉及到PC的更新，数据处理指令更新PC的情况很少见。但是反过来就比较常见了，例如PC的值对于访问存储在程序memory中的文字数据（const char指针，例如.ro段）很有用。因此，在arm汇编中可以看到将PC作为基地址寄存器 + 偏移量形式进行内存读取操作，偏移量则用立即数表示。
+
+> 请注意 术语branches和calls的区别，branches类似于C语言的goto，直接跳转没有返回，不需要记录LR；而call是需要记录返回地址的。
+
+关于多线程中如何共用一个PC，需要参考操作系统的设计：[02_RTOS_任务之（一）任务调度机制](https://github.com/carloscn/blog/issues/113#top)
 
 # Ref
 [^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
