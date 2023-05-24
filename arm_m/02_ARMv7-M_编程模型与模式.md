@@ -8,7 +8,7 @@ ARM有个专业术语叫做Programmer's model，可能对这个概念很陌生�
 
 以下编程模型来自于arm的白皮书：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305100933677.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305100933677.png" width="80%" /></div>
 
 M系列的CPU的P model设计上都保持了一致性。例如，在寄存器方面`R0-R15`，`PSR`，`CONTROL`和`PRIMASK`都保持了一样的设计。但是也有一些不同的地方，例如，两个特殊寄存器，`FAULTMASK`和`BASEPRI`只在M3/M4/M7/M33存在，floating point bank寄存器和`FPSCR`(Floating Point Status and Control Register)只在Cortex-M4/M7/M33上存在。
 
@@ -18,7 +18,7 @@ M系列的CPU的P model设计上都保持了一致性。例如，在寄存器方
 
 CONTROL寄存器如下：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305111026711.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305111026711.png" width="80%" /></div>
 
 可以看出，关于M核心的执行状态问题，都是使用CONTROL寄存器来进行配置的。
 
@@ -37,7 +37,7 @@ PSR(Program Status Register) 在M核之间也有不同。在所有的Cortex-M中
 
 M3/M4处理器有两个执行状态，相应的有两种模式。除此之外，处理器有特权和非特权访问等级。特权访问level可以访问处理器上的所有的资源，非特权访问意味着一些内存区域，或者一些指令操作不能被执行。在一些文档中，unprivilege模式还被称为“user”模式，这个术语来源于classic ARM，例如ARM7TDMI。
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305151010921.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305151010921.png" width="80%" /></div>
 
 #### Operation States
 
@@ -61,7 +61,7 @@ ARM这样设计的初衷也是为了安全考虑，基于一个基本的安全�
 
 默认状态，M核处理器上电就处于特权模式，这个和ARMv8设计一致，开始则为最大可访问权限然后逐步降级，这样也是为了初始化资源方便。在一些简单的应用场景（并非需要OS调度的）就不需要去降级到非特权模式，使用普通的SP指针即可。**注意M0+没有特权模式**。如图所示：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305151044134.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305151044134.png" width="80%" /></div>
 
 还需要注意debug state。这个状态进入的点在于被debugger控制和停止了ARM处理器的运行。这个状态开放了寄存器值的外部读取和修改。
 
@@ -69,11 +69,11 @@ ARM这样设计的初衷也是为了安全考虑，基于一个基本的安全�
 
 在M3/M4中ARM执行数据处理和控制依托于寄存器。这些寄存器组合成一个单元叫做register bank。参考[^1]，register bank里面包含很多register，
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160844392.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160844392.png" width="80%" /></div>
 
 在ARM的数据处理过程中，涉及数据处理就要频繁的访问寄存器，至少有一个原寄存器和目的寄存器。数据处理的过程通常是把数据从内存中加载到寄存器组的寄存器，数据处理完毕之后，需要把数据从寄存器中回写到内存中，这种架构通常称为“load-store”架构。这种情况也提高了运算的效率，因为数据在寄存器内进行运算不需要频繁的通过总线访问内存。但也需要注意，寄存器属于CPU内部的机制，在多核的SoC中，或者有DMA的存在，多个访问者挂载共用的内存中时候，这个时候如果两个CPU都在自己的寄存器中进行运算，那么就会发生数据错误。因此，我们需要用C语言的时候增加volatile关键字，告诉编译器，这个值访问的时候需要从memory中重新load。参考[Compiler optimization and the volatile keyword.md](https://gist.github.com/carloscn/354c7b91e49fa44110dafa1b8b2776c3)
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160853868.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305160853868.png" width="80%" /></div>
 
 M3和M4的寄存器组有16个寄存器，他们中的13个是通用寄存器（R0-R12），剩下的是特殊寄存器（R13-R15）。
 
@@ -110,7 +110,7 @@ R15是著名的PC寄存器（可读可写的）。注意，PC读取返回和指�
 
 我们来看一下ARM的流水线结构下的PC指向问题：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305170931913.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305170931913.png" width="80%" /></div>
 
 上图所示，在执行`add r0, r1, #5`指令时，第二条指令正在译码阶段，而第三条指令正在取指阶段。在执行第一条指令时，PC寄存器应指向第三条指令。也即，当处理器为三级流水线结构时，PC寄存器总是指向随后的第三条指令。
 
@@ -138,7 +138,7 @@ SUB R0,R0,R1    ; STR指令地址+偏移量的值减去STR指令的地址，
 
 除了以上寄存器在寄存器组中，这里还有很多特殊的寄存器：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305190853880.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305190853880.png" width="80%" /></div>
 
 从特殊寄存器中可以读或者设定处理器的状态，还有interrupt异常的masking设定。在Baremental的开发中，可能不需要来去访问寄存器，而对于嵌入式操作系统的开发，为了迎合操作系统的一些功能，就需要来去处理这些寄存器。
 
@@ -173,7 +173,7 @@ NSR PSR, r0 ; Write combined program state word
 
 这些位的意义和ARMv8一致：
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305220907004.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305220907004.png" width="80%" /></div>
 
 也可以访问单独的PSR，正如上面列举的三个寄存器：
 
@@ -191,16 +191,16 @@ MSR APSR, r0 ; Write Flag state
 
 PRI-MASK、FAULT-MASK和BASE-PRI寄存器主要用于异常或者中断的屏蔽。每一个异常都有一个优先级的属性。
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240842087.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240842087.png" width="80%" /></div>
 
 在优先级的配置上，请注意，数值越小优先级越高，数值越大，优先级越低。这些特殊的寄存器就基于优先级用于屏蔽异常。**这些寄存器只能在特权模式下才能被写入，如果在非特权模式下写入这个操作会被忽略，如果是非特权模式读的话，就会读到全0的数据**。默认情况，这些特殊寄存器的值都是0，这个0值也是有意义的，这就意味着所有的中断和异常都被屏蔽掉，没有被激活。
 
-<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240919810.png" width="80%" /></div> 
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240919810.png" width="80%" /></div>
 
 上图是这些寄存器的编程模型，PRIMASK寄存器只有1bit宽度。当设定的时候，一键block所有的异常（除了NMI不可屏蔽中断和HardFault异常）。实际上，ARM的处理方式是把当前的中断的优先级设定为最高。
 
 >  这个地方不太好理解，既然是屏蔽中断，那么所有的中断优先级应该设定为最低才更合理。为什么设定为最高？
->  
+>
 >  在基于优先级的中断处理方式中，中断被分为多个优先级级别，具有更高优先级的中断可以打断正在执行的较低优先级中断。当PRIMASK被设置为1时，表示当前正在处理的中断的优先级为最高，其他所有中断被屏蔽，即使**有更高优先级的中断发生也不会被处理**。这样可以确保当前正在执行的中断完成后才会处理其他中断，从而保证了中断的顺序和优先级。
 >  所以，设置PRIMASK为1并不是将优先级设定为最低，而是将优先级设定为最高，以确保当前中断的完整执行。
 
