@@ -134,5 +134,118 @@ SUB R0,R0,R1    ; STR指令地址+偏移量的值减去STR指令的地址，
 
 关于多线程中如何共用一个PC，需要参考操作系统的设计：[02_RTOS_任务之（一）任务调度机制](https://github.com/carloscn/blog/issues/113#top)
 
+### 1.1.3 Special Registers
+
+除了以上寄存器在寄存器组中，这里还有很多特殊的寄存器：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305190853880.png" width="80%" /></div> 
+
+从特殊寄存器中可以读或者设定处理器的状态，还有interrupt异常的masking设定。在Baremental的开发中，可能不需要来去访问寄存器，而对于嵌入式操作系统的开发，为了迎合操作系统的一些功能，就需要来去处理这些寄存器。
+
+特殊寄存器没有被内存映射，所以使用一般的操作指令无法访问。ARM提供了专门的指令来访问特殊寄存器，MSR和MRS，这部分和ARMv8是一致的。[06_ARMv8_指令集_一些重要的指令](https://github.com/carloscn/blog/issues/12) 系统访问寄存器。
+
+``` assembly
+MRS <reg>, <special_reg>; Read special register into register
+MSR <special_reg>, <reg>; write to special register
+```
+
+ARM还给软件工程师提供了访问接口。除此之外，还需要注意有个SFP寄存器（Special Function Register）这个是特定的寄存器的名字，而这一节中提到的是一类寄存器的名字。
+
+#### 程序状态寄存器（Program Status Register）
+
+包含：
+* Application PSR (APSR)
+* Execution PSR (EPSR)
+* Interrupt PSR (IPSR)
+
+这三个寄存器，如图所示：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305220903020.png)
+
+三个寄存器可以使用组合式的方式访问，在组合模式一些文档中称为寄存器xPSR。在ARM的汇编中，访问xPSR：
+
+```Assembly
+MRS r0, PSR ; Read the combined program status word
+NSR PSR, r0 ; Write combined program state word
+```
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305220907735.png)
+
+这些位的意义和ARMv8一致：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305220907004.png" width="80%" /></div> 
+
+也可以访问单独的PSR，正如上面列举的三个寄存器：
+
+```Assembly
+MRS r0, APSR ; Read Flag state into R0
+MRS r0, IPSR ; Read Exception/Interrupt state
+MSR APSR, r0 ; Write Flag state
+```
+
+> 注意：
+> * ERSR寄存器不能使用软件MRS/MSR指令直接访问
+> * IPSR是只读的，也能够从组合式的PSR中读出来。
+
+#### PRIMASK, FAULTMASK, and BASEPRI registers
+
+PRI-MASK、FAULT-MASK和BASE-PRI寄存器主要用于异常或者中断的屏蔽。每一个异常都有一个优先级的属性。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240842087.png" width="80%" /></div> 
+
+在优先级的配置上，请注意，数值越小优先级越高，数值越大，优先级越低。这些特殊的寄存器就基于优先级用于屏蔽异常。**这些寄存器只能在特权模式下才能被写入，如果在非特权模式下写入这个操作会被忽略，如果是非特权模式读的话，就会读到全0的数据**。默认情况，这些特殊寄存器的值都是0，这个0值也是有意义的，这就意味着所有的中断和异常都被屏蔽掉，没有被激活。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305240919810.png" width="80%" /></div> 
+
+上图是这些寄存器的编程模型，PRIMASK寄存器只有1bit宽度。当设定的时候，一键block所有的异常（除了NMI不可屏蔽中断和HardFault异常）。实际上，ARM的处理方式是把当前的中断的优先级设定为最高。
+
+>  这个地方不太好理解，既然是屏蔽中断，那么所有的中断优先级应该设定为最低才更合理。为什么设定为最高？
+>  
+>  在基于优先级的中断处理方式中，中断被分为多个优先级级别，具有更高优先级的中断可以打断正在执行的较低优先级中断。当PRIMASK被设置为1时，表示当前正在处理的中断的优先级为最高，其他所有中断被屏蔽，即使**有更高优先级的中断发生也不会被处理**。这样可以确保当前正在执行的中断完成后才会处理其他中断，从而保证了中断的顺序和优先级。
+>  所以，设置PRIMASK为1并不是将优先级设定为最低，而是将优先级设定为最高，以确保当前中断的完整执行。
+
+PRIMASK最常用的场景就是针对与有时间敏感度的进程，可能不想要让中断打断这个进程，因此，一键屏蔽所有的中断。在这个进程执行完毕之后，PRIMASK就要被清除掉，并且重新使能中断。
+
+FAULTMASK寄存器和PRIMASK寄存器非常类似。但是相比于PRIMASK，这个寄存器能屏蔽HardFault异常。当需要屏蔽这个异常的时候，FAULTMASK会升当前的异常优先级为1。FAULTMASK主要用于错误处理，在ARM进入到错误处理handler的时候，在handler中需要对FAULTMASK进行配置，这样做的好处是防止在handler中继续发生错误嵌套。
+
+例如：FAULTMASK可以绕过MPU或者镇压BUS fault。这个带来的好处就是让错误处理更容易在handler中采取一些补救措施。FAULTMASK和PRIMASK在退出上也有区别，FAULTMASK在异常返回之后可以自动的被清除。
+
+BASEPRI寄存器提供一种颗粒度更细致的异常屏蔽。换言之，异常组或者单个异常的屏蔽都可以在BASERRI中进行配置。到底管理多少中断还要看二级厂商如何设计的。M3/M4核的ARM有8个可编程的level或者16个。
+
+在CMSIS-Core中，提供很多函数可以控制访问这三个特殊的寄存器：
+
+``` C
+x = __get_BASEPRI(); // Read BASEPRI register
+x = __get_PRIMARK(); // Read PRIMASK register
+x = __get_FAULTMASK(); // Read FAULTMASK register
+__set_BASEPRI(x); // Set new value for BASEPRI
+__set_PRIMASK(x);
+__set_FAULTMASK(x);
+// Set new value for PRIMASK
+// Set new value for FAULTMASK
+__disable_irq(); // Set PRIMASK, disable IRQ
+__enable_irq(); // Clear PRIMASK, enable IRQ
+```
+
+也可以使用汇编的方式来访问：
+
+```Assembly
+MRS r0, BASEPRI ; Read BASEPRI register into R0
+MRS r0, PRIMASK ; Read PRIMASK register into R0
+MRS r0, FAULTMASK ; Read FAULTMASK register into R0
+MSR BASEPRI, r0 ; Write R0 into BASEPRI register
+MSR PRIMASK, r0 ; Write R0 into PRIMASK register
+MSR FAULTMASK, r0 ; Write R0 into FAULTMASK register
+```
+
+有个简单的方法是通过Change Processor State (CPS) 指令来配置这些特殊寄存器的值为1或者0
+
+```Assembly
+CPSIE i ; Enable interrupt (clear PRIMASK)
+CPSID i ; Disable interrupt (set PRIMASK)
+CPSIE f ; Enable interrupt (clear FAULTMASK)
+CPSID f ; Disable interrupt (set FAULTMASK)
+```
+
 # Ref
 [^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
