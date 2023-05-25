@@ -247,5 +247,76 @@ CPSIE f ; Enable interrupt (clear FAULTMASK)
 CPSID f ; Disable interrupt (set FAULTMASK)
 ```
 
+Note: The FAULTMASK and BASEPRI registers are not available in ARMv6-M
+(e.g., Cortex-M0).
+
+#### CONTROL register
+
+下面介绍一个非常重要的寄存器，Control寄存器（为了方便打字，后面用CTL代替）。整个ARM的运行基调都被这个寄存器控制着：
+* 栈指针的选择，指定ARM会使用MSP或者PSP；
+* Thread模式下面的运行模式（特权or非特权模式）；
+* （Only M4）浮点单元，一个bit来指示是浮点单元的使用。
+
+注意：CTL只能控制Thread模式，Handler模式无法控制。
+
+**CTL寄存器只能在特权模式下进行修改，但是能在非特权和特权模式下进行读**。bit位按照下表表示：
+
+|Bit|Function|
+|-|-|
+|nPRIV (bit 0)|在Thread模式下，0标志着thread模式下的特权模式；1标志着thread模式下非特权模式|
+|SPSEL (bit 1)|栈指针的选择，默认是0，0标志着使用MSP；1标志着thread模式使用PSP；在handler模式下，这个位置总是0，写入其他值被忽略|
+|FPCA (bit 2)|Floating Point Context Active，这个比特位只能M4下面用，指示哪个浮点模块要使用|
+
+在复位之后，CTL寄存器的值全都是0。这就意味着，复位状态Thread mode使用MSP作为栈指针并且Thread Mode有特权访问。在特权模式下的Thread mode，能够自由选择栈指针，也可以切换特权和非特权模式。然而，一旦nPRIV被置位，ARM把当前状态切换到非特权模式下，注意，此时就没有办法在thread模式 + 非特权的情况下切回到特权模式，因此就无法再修改CTL寄存器，只能触发handler模式，进入handler模式的时候进行修改。这种变换关系如下图所示：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305250904970.png" width="80%" /></div> 
+
+程序在非特权模式的时候十分受限，没有办法自己直接切回到特权模式。这种设计也是经过深思熟虑的，考虑到一些安全的问题。例如，在嵌入式系统中可能运行一些不可信的应用程序，此时让这个应用程序运行在非特权模式，这个应用程序就被限制读取和操作一些核心的系统资源，以防止整个系统崩溃于这个应用程序。
+
+如果这个应用程序需要访问Core级的资源，也就是在Thread模式下进行特权访问，那么这个应用程序需要异常处理机制，让其自身进入到handler模式之后，在handler中对CTL寄存器进行修改，然后再从handler中返回thread。此时应用程序就有个特权的窗口期可以访问Core级的资源。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305250909347.png)
+
+除了需要注意模式之外，还有栈指针与运行模式的关系。nPRIV和SPSEL是正交的，也就是有四个象限，造成四个状态（其中有三个在真实的使用场景会发生）
+
+|nPRIV|SPSEL|Usage|
+|-|-|-|
+|0|0|最常见的场景—— 整个应用程序运行在特权模式（baremental应用）。只是用到了MSP。|
+|0|1|最常见的场景—— 操作系统和应用模式（rtos应用）。操作系统和异常使用MSP，应用使用PSP，操作系统调度CTL|
+|1|1|不常见的场景—— 操作系统和应用模式（rtos应用）。操作系统在非特权Thread mode，OS选择MSP，应用选择PSP|
+|1|0|不常见的场景—— Thread mode程序在非特权模式使用MSP。|
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305251014640.png)
+
+可以通过C语言来访问CTL寄存器：
+
+```C
+x = __get_CONTROL(); // Read the current value of CONTROL
+__set_CONTROL(x); // Set the CONTROL value to x
+```
+
+使用C语言访问CTL寄存器需要注意：
+
+* FPCA位用于指示处理器的浮点上下文是否处于活动状态。当FPCA位为1时，表示浮点上下文处于活动状态；当FPCA位为0时，表示浮点上下文处于非活动状态。在某些Cortex-M处理器的实现中，访问CONTROL寄存器时，FPCA位可能会发生变化。具体来说，当从非特权级别访问CONTROL寄存器时，FPCA位可能会被设置为0，表示浮点上下文不处于活动状态。而当从特权级别（例如，特权模式、处理器模式）访问CONTROL寄存器时，FPCA位可能会保持不变，即保持其原有的值。
+* 在修改CTL寄存器之后，在架构级的内存屏障指令应该被显示地调用。Instruction Syn-chronization Barrier`__ISB()`应该被使用来确保CTL寄存器真的写入到寄存器中。
+
+```Assembly
+MRS r0, CONTROL ; Read CONTROL register into R0
+MSR CONTROL, r0 ; Write R0 into CONTROL register
+```
+
+检测当前的执行特权模式可以使用：
+
+```C
+int in_privileged(void)
+{
+	if (__get_IPSR() != 0) return 1; // True
+else
+	if ((__get_CONTROL() & 0x1)==0) return 1; // True
+else return 0; // False
+}
+```
+
+
 # Ref
 [^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
