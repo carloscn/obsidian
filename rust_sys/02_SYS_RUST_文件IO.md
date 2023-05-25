@@ -20,7 +20,7 @@
 
 Rust标准库针对输入输出的特性是通过3个特型，即Read、BufRead和Write。
 
-## Write系统调用
+## Write特型
 
 在Linux C中，使用系统调用write把缓冲buf的前nbytes字节写入文件描述符所关联的文件中。write调用成功之后返回实际写入的字节数。如果文件描述符在写入过程中有错误或者设备驱动对于写入长度敏感，那么返回值可能小于请求写入的长度nbytes。如果函数返回0则没有写入任何数据；如果长度返回是-1，就表示调用write的时候出现了错误。
 
@@ -108,3 +108,59 @@ writer.write_all_vectored(bufs)?;
 
 assert_eq!(writer, &[1, 2, 3, 4, 5, 6]);
 ```
+
+## Read特型
+
+在Linux C中，https://man7.org/linux/man-pages/man3/fread.3.html 表述了fread函数的作用。
+
+```C
+#include <stdio.h>
+
+size_t fread(void *restrict ptr, size_t size, size_t nmemb,
+                    FILE *restrict stream);
+```
+
+从文件描述符关联的文件中读取nbytes个字节的数据，并把他们放在buffer中，返回读入的字节数。
+
+下面是读取ASCII字符的方法：
+
+``` Rust
+pub fn read_file_ascii(file_name:&str) -> Result<String, io::Error>
+{
+    let rc:Result<String, io::Error>;
+
+    let mut ctx = match File::open(file_name)?;
+    let mut read_str:String = String::new();
+    ctx.read_to_string(&mut read_str).unwrap();
+
+    rc = Ok(read_str);
+
+    return rc;
+}
+```
+
+下面是读取二进制的方法：
+
+全部读取：
+
+```Rust
+pub fn read_file_binary(file_name:&str) -> Result<Vec<u8>, io::Error>
+{
+        let rc:Result<Vec<u8>, io::Error>;
+        let mut ctx = match File::open(file_name)?;
+        let mut ret_vec:Vec<u8> = vec![];
+        ctx.read_to_end(&mut ret_vec).unwrap();
+        rc = Ok(ret_vec);
+
+        return rc;
+    }
+```
+
+读取指定字节数，例如读取128字节的数字，定义一个128的元组：
+
+```Rust
+let mut buffer:[u8;128] = [0; 128];
+ctx.read(&mut buffer)?;
+```
+
+和Linux C同样，返回的数据长度可能小于请求长度。
