@@ -163,4 +163,103 @@ let mut buffer:[u8;128] = [0; 128];
 ctx.read(&mut buffer)?;
 ```
 
-和Linux C同样，返回的数据长度可能小于请求长度。
+和Linux C同样，返回的数据长度可能小于请求长度。 
+
+除了这些特型之外，还有4个迭代器的方法：
+
+* `reader.bytes()` 返回输入流字节的迭代器。迭代器的类型是`io::Result<u8>`，因此每个字节都需要错误检查。另外，这个方法对每个字节都会调用一次`reader.read()`，这就导致了迭代器的效率非常低；
+* `reader.chars()`和上面一样，只不过返回的类型是UTF-8。无效的UTF-8导致错误，效率也非常低；
+* `reader.chain(reader2)`返回新的读取器，产生reader的所有输入和reader2的所有输入。
+* `reader.take(n)`返回新的读取器，与reader的读取器读入源是一样的只不过读取n个字节。
+
+### 缓冲读取器
+
+为了提高效率，reader和writer可以缓冲起来。所谓buffer，简单的说就是分配一块内存，以空间来换速度。有了缓冲器的好处就是减少系统调用。要知道read和write的系统调用机制非常复杂，需要透过用户空间进入内核空间，这一系列的切换都是有开销的。如果我们实现一个函数，包装read和write的操作，把数据积累到一定的程度之后，再一起发起系统调用，这样就减少了开销。但同时，如果一些write和read特型下层抽象了一些时间敏感的驱动，这就在时序上发生了问题。
+
+在Linux C中，我们会发现，`read`和`write`系统调用和，stdio.h中的`fread`和`fwrite`都可以对文件进行操作。实际上在标准输入输出流中的函数在系统调用的基础上增加了缓冲区。所以在写完之后，需要进行`fflush`操作，把缓冲区的数据发起系统调用写入内核中，如果是内核写入到磁盘中还需要`fsync`。增加缓冲区的设计随处可见，例如Linux系统的U盘，写完之后还需要`sync`一样的道理。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora20230530200318.png)
+
+在一般情况下，几乎所有设备都可以使用缓冲区进行读写操作，包括文件、磁盘、网络套接字等。缓冲区的使用可以提高读写操作的效率，减少系统调用的次数。
+
+然而，某些特殊设备可能不支持使用缓冲区。这些设备通常是以字符为单位进行读写，并且要求实时性非常高，不能进行延迟或缓冲。一些例子包括串口设备（Serial Port）、某些类型的传感器、实时采集设备等。
+
+对于这些特殊设备，通常需要使用系统调用函数（如write和read）直接进行数据的逐字节读写，而不使用缓冲区。这样可以确保数据的即时传输和实时性要求的满足。
+
+受Linux系统设计的影响，在Rust中也是一样的有非缓冲和缓冲读操作。上面的reader实现的特型`read()`就是直接进行系统调用。而使用缓冲的方法就是Rust比较推荐的BufRead。Rust特型之间的继承使之BufRead继承Read。
+
+```Rust
+// 使用BufReader包装原始Reader
+let mut buf_reader = BufReader::new(reader);
+// 现在，它具有了BufRead Trait中的所有功能
+for line in buf_reader.lines() {
+    // xxx
+}
+```
+
+BufRead提供以下几种特型：
+* `reader.read_line(&mut line)`读取一行文本并追加到line，line是一种String。行位的换行符`\n`也会在line中。如果是Windows那么`\r\n`也会在line中；
+* `reader.lines()`返回输入行的迭代器。迭代类型是`io::Result<String>`。换行符不会被包含在String中。
+* `reader.read_until(stop_byte, &mut byte_vec)` 与read_line相似；
+* `reader.split(stop_byte)`与lines相似，产生的只不过以字节为单位。
+
+BufRead还提供了比较low-level的方法，`.fill_buf`和`.consume(n)`用于直接访问读取器内部的缓冲。
+
+我们来介绍几个使用BufRead的例子
+
+#### 读取文本行
+
+grep命令在Linux中是比较常用的命令，可以配合管道对管道内的数据进行搜索，以下是管道内的数据进行搜索的例程：
+
+```Rust
+    use std::io;
+    use std::io::prelude::*;
+
+    fn grep(target: &str) -> io::Result<()>
+    {
+        let stdin = io::stdin();
+        for line_result in stdin.lock().lines() {
+            let line = line_result?;
+            if line.contains(target) {
+                println!("{}", line);
+            }
+        }
+        return Ok(());
+    }
+```
+
+非常简单。但是我们考虑一下，以上是管道内的数据搜索，管道内的数据是缓冲区内的数据，因此使用lines()是没有问题的。那如果是磁盘上的数据呢？
+
+磁盘上的数据需要被kernel进行加载再通过系统调用进入用户空间。那么我们这么读取：
+
+```Rust
+    pub fn grep_in_disk<R>(target: &str, reader: R) -> io::Result<()>
+        where R : BufRead
+    {
+        for line_result in reader.lines() {
+            let line = line_result?;
+            if line.contains(target) {
+                println!("{}", line);
+            }
+        }
+        return Ok(());
+    }
+```
+
+我们可以这样调用：
+
+```RUST
+    use std::io::BufReader;
+    use std::fs::File;
+    #[test]
+    fn tool_test_grep() {
+        let stdin = io::stdin();
+        tools::grep_in_disk("hello", stdin.lock());
+
+        let f = File::open("hello.txt");
+        tools::grep_in_disk("hello", BufReader::new(f));
+
+    }
+```
+
+注意，File不会自动的创建缓冲器，因为实现是Read而不是ReadBuf。不过我们可以直接使用BufReader::new方法直接为文件句柄创建缓冲器。配置缓冲大小可以使用`BufReader.with_capacity(size, reader)`完成。
