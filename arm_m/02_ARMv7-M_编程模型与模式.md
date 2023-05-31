@@ -27,7 +27,7 @@ PSR(Program Status Register) 在M核之间也有不同。在所有的Cortex-M中
 * Eexecution PSR
 * Interrupt PSR
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202305111030293.png)
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305111030293.png)
 
 # 1. Programmer's model
 
@@ -160,7 +160,7 @@ ARM还给软件工程师提供了访问接口。除此之外，还需要注意�
 
 这三个寄存器，如图所示：
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202305220903020.png)
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305220903020.png)
 
 三个寄存器可以使用组合式的方式访问，在组合模式一些文档中称为寄存器xPSR。在ARM的汇编中，访问xPSR：
 
@@ -169,7 +169,7 @@ MRS r0, PSR ; Read the combined program status word
 NSR PSR, r0 ; Write combined program state word
 ```
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202305220907735.png)
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305220907735.png)
 
 这些位的意义和ARMv8一致：
 
@@ -275,7 +275,7 @@ Note: The FAULTMASK and BASEPRI registers are not available in ARMv6-M
 
 如果这个应用程序需要访问Core级的资源，也就是在Thread模式下进行特权访问，那么这个应用程序需要异常处理机制，让其自身进入到handler模式之后，在handler中对CTL寄存器进行修改，然后再从handler中返回thread。此时应用程序就有个特权的窗口期可以访问Core级的资源。
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202305250909347.png)
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305250909347.png)
 
 除了需要注意模式之外，还有栈指针与运行模式的关系。nPRIV和SPSEL是正交的，也就是有四个象限，造成四个状态（其中有三个在真实的使用场景会发生）
 
@@ -286,7 +286,7 @@ Note: The FAULTMASK and BASEPRI registers are not available in ARMv6-M
 |1|1|不常见的场景—— 操作系统和应用模式（rtos应用）。操作系统在非特权Thread mode，OS选择MSP，应用选择PSP|
 |1|0|不常见的场景—— Thread mode程序在非特权模式使用MSP。|
 
-![](https://raw.githubusercontent.com/carloscn/images/main/typora202305251014640.png)
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305251014640.png)
 
 可以通过C语言来访问CTL寄存器：
 
@@ -318,5 +318,337 @@ else return 0; // False
 ```
 
 
+#### 浮点寄Float point寄存器
+
+M4有一个可选的浮点单元。浮点单元可以控制的寄存器包含：Control Register和Floating Point Status。通过这两个寄存器，我们可以使用M4的浮点单元。
+
+M4上有S0-S31，单精度的32位浮点运算寄存器用于浮点运算的临时值驻留，这些寄存器只能被浮点指令访问。除此之外，还有D0-D31双精度的寄存器。注意，M4是不支持双精度浮点运算的，但是可以使用D0-D31寄存器作为双精度数据的传输。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290850170.png" width="80%" /></div> 
+
+FPSCR中包含丰富的控制位信息，都是用来控制浮点运算和传输的行为：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305290851722.png)
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290854315.png" width="80%" /></div> 
+
+* 用于定义一些浮点的操作行为
+* 提供一些浮点运算结果的信息
+
+默认状态下， 浮点的运算的标准被配置为[IEEE 754](https://en.wikipedia.org/wiki/IEEE_754) 单精度浮点操作。正常状态下是不需要做任何的修改的。需要注意的是在FPSCR上面，exception bits用于编程者检测浮点运算的异常。
+
+下面是程序员使用指令访问FPU的一些方法：
+
+Coprocessor Access Control Register (CPACR)用于使能或者关闭FPU：
+
+```C
+SCB->CPACR j= 0xF << 20; // Enable full access to the FPU
+```
+
+在通常状况下，如果不使用浮点运算的话，可以关闭FPU，这样对功耗有好处。
+
+```Assembly
+LDR R0,=0xE000ED88 ; R0 set to address of CPACR
+LDR R1,=0x00F00000 ; R1 = 0xF << 20
+LDR R2 [R0] ; Read current value of CPACR
+ORRS R2, R2, R1 ; Set bit
+STR R2,[R0] ; Write back modified value to CPACR
+```
+
+####  APSR（应用状态寄存器）
+
+应用状态寄存器包括几组状态：
+* Status flags for integer operations (N-Z-C-V bits)
+* Status flags for saturation arithmetic (Q bit)
+* Status flags for SIMD operations (GE bits)
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305290918842.png)
+
+##### 整数状态指示
+
+在ARMv8架构里面也有，[04_ARMv8_指令集_运算指令集](https://github.com/carloscn/blog/issues/3#top) 里面比较指令`CMP`对NCZV标志位进行比较。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290921814.png" width="80%" /></div> 
+
+一些例子：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290922727.png" width="80%" /></div> 
+
+##### Q stauts
+
+Q用于指示在饱和运算或饱和度调整操作期间出现饱和。ARMv7-M支持但是ARMv6-M不支持。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290923642.png" width="80%" /></div> 
+
+这个部分知道有就行了。
+
+##### GE bits
+
+Greater-Equal，被Single Instruction Multiple Data (SIMD) operations更新。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305290925602.png" width="80%" /></div> 
+
+
+### 1.1.4 Stack memory
+
+#### Hardware
+
+在Cortex-M的数据存储结构中，设计了栈结构（Last-In-First-Out）来cover内存结构。对于栈结构就需要有个栈顶指针来指向栈在哪里。在M核中，使用R13来做栈指针的存储。ARMv7-M有专门的指令出栈和入栈的指令，`PUSH`和`POP`。在使用PUSH和POP的时候，不需要关心栈寄存器是什么（MSP或者PSP）。
+
+在ELF的时候，我们整理过关于ARM的栈调用规则：[07_ELF文件_堆和栈调用惯例以ARMv8为例](https://github.com/carloscn/blog/issues/50#top)
+
+栈在程序运行的时候作用非常大，但是我们都是从C语言的角度，栈的作用被C语言的设计理念和机制包装。从ARM处理器的角度，栈的作用：
+* 存储原始数据。这里的原始数据是指在数据处理过程中借用了寄存器的数据；
+* 记录函数调用的信息，以及函数调用的路径；
+* 存储本地（函数内部）的变量；
+* 记录寄存器的状态和寄存器的值（例如中断发生要保存现场）
+
+M处理器使用的栈模型为，“**full-descending stack**”，如下所示，几种典型的栈空间模型[^2]：
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202305300850889.png" width="80%" /></div> 
+
+这种栈模型，是随着push数据，栈指针向低地址方向靠拢。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typoratypora202305300856791.png)
+
+PUSH和POP最常见的使用主要是在发生函数调用的时候来存储寄存器的上下文/函数调用路线。在函数调用之前，寄存器的上下文会被PUSH指令存储到栈空间里面，在函数返回之前，会把这些值还原到原始的寄存器中。例如下图所示，一个简单的函数调用操作，主程序调用function1。此时function1需要使用和修改R4和R5和R6寄存器进行数据处理，这些寄存器在function1结束之后main函数还需要用。所以调用之前，这些值会被压入栈中，在返回之后通过POP出栈之后还原。这种方法保证了函数在调用的时候不会发生数据丢失，而且可以按照原始的路径一路路返回。需要注意的是ARM的POP和PUSH是成对出现的。有POP就应该有PUSH。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305300856952.png)
+
+POP和PUSH可以传输多个数据，如下图所示，可以把寄存器的值写在一起。由于寄存器是32位的，所以每次传输的时候需要数据32位对齐，地址也要对齐。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305300900041.png)
+
+对于不同类的寄存器，也可以一起PUSH和POP，比如通用寄存器和LR寄存器一起操作。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305300902399.png)
+
+M处理器上有两个栈指针，一个是MSP和PSP。
+
+|Processor mode|Code execute|Access level|Stack used|
+|---|---|---|---|
+|Thread|Applications|Privileged or unprivileged|Main stack or process stack|
+|Handler|Exception handlers|Always privileged|Main stack|
+
+之前在CTL一节中也提到过MSP和PSP通过SPSEL来进行切换。除此之外，对于异常之后的返回地址是放在EXC_RETURN中的。所以在这种情况下，返回地址不一定是从栈中恢复过来的，那么就要根据SPSEL来找到返回地址。
+
+在简单的baremental应用中，是没有嵌入式系统的，thread模式和handler模式都只使用MSP。下图就是表示这种情况，unstashing的时候也是从MSP恢复的。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305300905710.png)
+
+当有嵌入式系统的的时候，OS和User空间使用不同的内存区域。因此，PSP在Thread的时候被使用，MSP在handler的时候被使用，这个时候就需要切换栈指针寄存器。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310923115.png)
+
+这种栈指针分开的操作有利于保护应用程序不会crash掉系统。而且通过CTL寄存器可以一键切换，使之在系统编程上就十分的便利和快速进行SP的切换。
+
+尽管在同一时刻只能使用MSP或PSP其中一个栈指针，但是可以直接读写MSP/PSP。在特权模式下，能够访问MSP和PSP通过CMSIS接口：
+
+```C
+x = __get_MSP(); // Read the value of MSP
+__set_MSP(x); // Set the value of MSP
+x = __get_PSP(); // Read the value of PSP
+__set_PSP(x); // Set the value of PSP
+```
+
+通常状况下，是不建议直接修改SP指针的。因为stack memory存储着大量的本地变量和函数调用的参数/路线。修改指针之后很可能这些数据都被miss掉了。通过指令也是可以访问的：
+
+```Assembly
+MRS R0, MSP ; Read Main Stack Pointer to R0
+MSR MSP, R0 ; Write R0 to Main Stack Pointer
+MRS R0, PSP ; Read Process Stack Pointer to R0
+MSR PSP, R0 ; Write R0 to Process Stack Pointe
+```
+
+应用层级也不需要去担心SP的事情，这些都是OS需要cover的。
+
+在芯片上电之后，处理器硬件自动的初始化MSP，并把vector table的首地址放入MSP中。PSP不会被自动的初始化，都是使用之前进行初始化的。
+
+#### Software
+
+在ARM基于CMSIS的软件栈中，链接器会把stack放在RAM的底部。我们以STM32F4为例子：
+
+`STM32F411RETX_FLASH.ld`:
+
+```c
+/* Highest address of the user mode stack */
+_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
+
+_Min_Heap_Size = 0x200; /* required amount of heap */
+_Min_Stack_Size = 0x400; /* required amount of stack */
+
+/* Memories definition */
+MEMORY
+{
+  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 128K
+  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K
+}
+```
+
+复位之后，处理器把0x0地址的值加载到MSP中，因此0地址必须存储的是vector table的内容。
+
+在startup的程序中`startup_stm32f411retx.s`定义了`isr_vector`：
+
+```assembly
+.section .isr_vector,"a",%progbits
+  .type g_pfnVectors, %object
+  .size g_pfnVectors, .-g_pfnVectors
+
+g_pfnVectors:
+  .word _estack
+  .word Reset_Handler
+  .word NMI_Handler
+...
+```
+
+`_estack`就在0地址，可以从linker script中找到：
+
+```
+/* Sections */
+SECTIONS
+{
+  /* The startup code into "FLASH" Rom type memory */
+  .isr_vector :
+  {
+    . = ALIGN(4);
+    KEEP(*(.isr_vector)) /* Startup code */
+    . = ALIGN(4);
+  } >FLASH
+```
+
+下图是Stack placement for Full Descending Stack：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310936039.png)
+
+##### Example
+
+创建一个bare-metal的工程，定义内存模型。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310938840.png)
+
+在 linker script `STM32F411RETX_FLASH.ld`, 定义 2 new 符号： `_msp_stack` and `_psp_stack`
+
+```
+/* Highest address of the user mode stack */
+_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
+
+_Min_Heap_Size = 0x200; /* required amount of heap */
+_Min_Stack_Size = 0x400; /* required amount of stack */
+
+_msp_stack = _estack;
+_psp_stack = _estack - _Min_Stack_Size / 2;
+```
+
+写一个简单的C程序：
+
+```C
+int add(int a, int b, int c, int d) {
+  return a+b+c+d;
+}
+
+void SVC_Handler() {
+  // this function call uses MSP
+  int sum = add(5,6,7,8);
+}
+
+__attribute__((naked)) void changeStackToPSP(void) {
+  // change PSP
+  __asm volatile("LDR R0, =_psp_stack");
+  __asm volatile("MSR PSP, R0");
+
+  // set SPSEL bit
+  __asm volatile("MRS R1, CONTROL");
+  __asm volatile("ORR R1, R1, #2");
+  __asm volatile("MSR CONTROL, R1");
+
+  // return
+  __asm volatile("BX LR");
+}
+
+void callSVC() {
+  __asm volatile("SVC #0");
+}
+
+int main(void)
+{
+  changeStackToPSP();
+  // this function call uses PSP
+  int sum = add(1,2,3,4);
+
+  // trigger SVC will force to use MSP
+  callSVC();
+
+  /* Loop forever */
+    for(;;);
+}
+
+```
+
+调试一下这个程序，在Reset Handler的函数中打一个断点，可以看到：
+* MSP寄存器加载0地址到内存系统（在Flash的0x8000000）
+* PC寄存器加载 0x4 地址的值 （Reset_Handler函数的入口，由于兼容thumb模式导致offset偏移一个thumb bit）
+
+下图`_estack` and `Reset_Handler` are loaded to `MSP` and `PC` at reset
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310942125.png)
+
+从MSP切换到PSP stack，必须写一个函数来作用PSP register，并且设定CTL寄存器。`__attribute__((naked))` 主要为了告诉编译器这是嵌入的汇编，不要产生prologue and epilogue （序言和结语）序列。
+
+> ARM术语 prologue and epilogue 
+> ARM定义函数的组成：
+> * Prologue 序言
+> * Body 函数主体
+> * Epilogue 尾声
+> 
+> Pologue序言的目的是保存程序的先前状态（通过将LR和R11的值存储到堆栈上）并为函数的局部变量开辟堆栈空间。虽然序言的实现可能取决于所使用的编译器，但通常通过使用PUSH/ADD/SUB指令来完成。典型用法如下：
+> `push {r11, lr} /* 序言开始，保存FP并将LR入栈 */*`
+> `add r11, sp, #0 /* 设置栈帧的底部*/`
+> `sub sp, sp, #16 /* 序言的终止，在栈上分配一些缓存区，这样也为栈帧分配了一些内存空间*/`
+>
+> 函数的主体部分通常负责执行某种特殊的和特定的任务。函数的这一部分可以包含多种指令、分支（跳转）到其他函数等。典型用法如下：
+> `mov r0, #1 /* setting up local variables (a=1). This also serves as setting up the first parameter for the function max */`
+> `_mov r1, #2 /_ setting up local variables (b=2). This also serves as setting up the second parameter for the function max */`
+> `_bl max /_ Calling/branching to function max */`
+>
+>函数的最后一部分，尾声（epilogue），用来将程序恢复到初始状态（调用函数之前的状态），所以可以接着从函数被调用之前的位置继续往后执行。为了实现该目标，我们需要读取堆栈指针（SP）。这是通过使用帧指针寄存器（R11）作为参考并执行加法或者减法操作来完成的。当我们重新调整堆栈指针时，我们通过将它们从堆栈中弹出到各自的寄存器中来恢复先前（prologue）保存的寄存器值。POP指令可能是结尾部分的最后指令，这取决于函数的类型 。
+
+需要注意的是：
+* `_psp_stack`符号定义在linker script中；
+* 手动的返回一个没有结语的函数使用BX和LR；
+
+```C
+__attribute__((naked)) void changeStackToPSP(void) {
+  // change PSP
+  __asm volatile("LDR R0, =_psp_stack");
+  __asm volatile("MSR PSP, R0");
+
+  // set SPSEL bit
+  __asm volatile("MRS R1, CONTROL");
+  __asm volatile("ORR R1, R1, #2");
+  __asm volatile("MSR CONTROL, R1");
+
+  // return
+  __asm volatile("BX LR");
+}
+```
+
+Change to Process Stack:
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310951287.png)
+
+Application is using PSP:
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310952837.png)
+
+When CPU sees an `SVC` call, it automatically changes to MSP Stack by setting `SP` to `MSP`.
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310953325.png)
+
+During an exception/ interrupt handler, MSP is used.
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310953738.png)
+
 # Ref
 [^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
+[^2]:[Stack Memory](https://www.codeinsideout.com/blog/stm32/stack-memory/#stack)
+[^3]:[ARM汇编学习六](https://blog.csdn.net/yalecaltech/article/details/104155381)
