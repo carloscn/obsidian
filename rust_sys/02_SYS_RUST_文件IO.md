@@ -109,6 +109,29 @@ writer.write_all_vectored(bufs)?;
 assert_eq!(writer, &[1, 2, 3, 4, 5, 6]);
 ```
 
+### 写入器
+
+Rust的`println!`本质就是一个写入器，只不过这个写入器被包装成了向stdio进行写入。Rust提供`writeln!`的宏可以写入数据。
+
+```Rust
+writeln!(io:stderr(), "error: world not helloable")?;
+writeln!(&mut byte_vec, "The greatest common divisor of {:?} is {}", 
+		 numbers, d)?;
+```
+
+`writeln`相比于`println`多了一个错误处理，一定要处理Result的结果。
+
+### 给writer加缓冲器
+
+可以给Writer加入缓冲器
+
+```Rust
+let file = File::create("tmp.txt")?;
+let writer = BufWriter::new(file);
+```
+
+要设定缓冲区大小`BufWriter::with_capacity(size, writer)`
+
 ## Read特型
 
 在Linux C中，https://man7.org/linux/man-pages/man3/fread.3.html 表述了fread函数的作用。
@@ -246,6 +269,27 @@ grep命令在Linux中是比较常用的命令，可以配合管道对管道内�
     }
 ```
 
+或者不需要使用 for 循环一个一个对？进行处理：
+
+```Rust
+    pub fn grep_in_disk<R>(target: &str, reader: R) -> io::Result<()>
+        where R : BufRead
+    {
+        let lines = reader.lines().collect::<io::Result<Vec<String>>>()?;
+        return Ok(());
+    }
+```
+
+RUST很贴心，对于这种wrapping的格式可以使用迭代器直接转换成相应的类型。`FromIterator`
+
+```Rust
+impl <T, E, C> FromIterator<Result<T, E>> for Result<C, E>
+	where C: FromIterator<T>
+{
+	// ...	
+}
+```
+
 我们可以这样调用：
 
 ```RUST
@@ -263,3 +307,4 @@ grep命令在Linux中是比较常用的命令，可以配合管道对管道内�
 ```
 
 注意，File不会自动的创建缓冲器，因为实现是Read而不是ReadBuf。不过我们可以直接使用BufReader::new方法直接为文件句柄创建缓冲器。配置缓冲大小可以使用`BufReader.with_capacity(size, reader)`完成。
+
