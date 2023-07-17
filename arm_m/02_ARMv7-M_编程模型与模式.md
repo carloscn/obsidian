@@ -648,6 +648,90 @@ During an exception/ interrupt handler, MSP is used.
 
 ![](https://raw.githubusercontent.com/carloscn/images/main/typora202305310953738.png)
 
+##### Procedure Call Standard for Arm Architecture (AAPCS)
+
+ARM的每一个不同架构的AAPCS都定义了参数如何传递，使用了什么寄存器，caller和callee的一些准则，除此之外，还定义了应用的ABI（ application binary interface）接口。
+
+Parameters和Arguments：
+* Parameter是一个变量名和类型，是函数声明的一部分；
+* Argument是实际传入到函数中的值；
+
+> 关于这块我们来区分一下这个术语：
+
+```C
+int add(int a, int b, int c, int d, int e);  // 这里的a和b是parameters
+
+int add(int a, int b, int c, int d, int e) {
+    return a+b+c+d+e;
+}
+
+int main() {
+    int sum = add(1,2,3,4,5);
+}
+```
+
+ Caller-saved and Callee-saved registers：
+ * `R0`-`R3` 通用寄存器用于传递参数给一个函数，同是也从这个寄存器取返回值；
+ * `R4`-`R8`, `R10` and `R11` 用于保存一个函数内的本地变量；
+
+举个例子，对于上述的add函数的汇编函数为：
+
+```Assembly
+xxxxxxx<main>:
+ 8000266:   2305        movs    r3, #5          ; 
+ 8000268:   9300        str     r3, [sp, #0]    ; save arg 5 to stack
+ 800026a:   2304        movs    r3, #4          ; save arg 4 to R3
+ 800026c:   2203        movs    r2, #3          ; save arg 3 to R2
+ 800026e:   2102        movs    r1, #2          ; save arg 2 to R1
+ 8000270:   2001        movs    r0, #1          ; save arg 1 to R0
+ 8000272:   f7ff ffb1   bl  80001d8 <add>       ; call to function
+...
+080001d8 <add>:
+ 80001d8:   b480        push    {r7}            ; save frame pointer
+ 80001da:   b085        sub sp, #20             ; reserve 20 bytes on stack
+ 80001dc:   af00        add r7, sp, #0          ; set new frame pointer
+ 80001de:   60f8        str r0, [r7, #12]       ; save arg 1 to stack
+ 80001e0:   60b9        str r1, [r7, #8]        ; save arg 2 to stack
+ 80001e2:   607a        str r2, [r7, #4]        ; save arg 3 to stack
+ 80001e4:   603b        str r3, [r7, #0]        ; save arg 4 to stack
+ 80001e6:   68fa        ldr r2, [r7, #12]       ; get arg 1 from stack
+ 80001e8:   68bb        ldr r3, [r7, #8]        ; get arg 2 from stack
+ 80001ea:   441a        add r2, r3              ; sum += arg 1 + arg 2
+ 80001ec:   687b        ldr r3, [r7, #4]        ; get arg 3 from stack
+ 80001ee:   441a        add r2, r3              ; sum += arg 3
+ 80001f0:   683b        ldr r3, [r7, #0]        ; get arg 4 from stack
+ 80001f2:   441a        add r2, r3              ; sum += arg 4
+ 80001f4:   69bb        ldr r3, [r7, #24]       ; get arg 5 from stack
+ 80001f6:   4413        add r3, r2              ; sum += arg 5
+ 80001f8:   4618        mov r0, r3              ; save sum to r0 as return value
+ 80001fa:   3714        adds    r7, #20         ; restore frame pointer
+ 80001fc:   46bd        mov sp, r7              ; restore stack pointer
+ 80001fe:   f85d 7b04   ldr.w   r7, [sp], #4    ; get saved frame pointer, pop back stack pointer
+ 8000202:   4770        bx  lr                  ; return
+...
+```
+
+如果参数超越了R0-R3，4个寄存器，就需要把参数存入栈中：
+
+Arguments on stack during function call：
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202306010840997.png)
+
+##### Context Saving on Stack
+
+在AAPCS中还定义了上下文存储的规则。如果发生了中断/异常，处理器将会进行一个特殊的procesure，那就是`context saving`
+
+上下文存储（保护现场）允许当前执行的程序流程和状态存储起来，当中断或者异常结束之后，再恢复。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202306010842835.png)
+
+当处理器takes an exception，除非这个异常是 tail-chained 或者 late-arriving 异常。处理器把信息会压入到当前的栈中。术语stashing。
+
+如果使用了FPU，M4处理器自动的保存FPU的状态，在进入异常之前：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202306010846300.png)
+
+栈帧包含了返回地址。这个地址是被中断的指令的下一条指令。这个值在异常结束之后会恢复到PC。
+
 # Ref
 [^1]:[Chapter 2: Registers, Register Banks, Memory and Arithmetic-Logic Units]( http://www.marmaralectures.com/chapter-2-registers-register-banks-memory-and-arithmetic-logic-units/)
 [^2]:[Stack Memory](https://www.codeinsideout.com/blog/stm32/stack-memory/#stack)

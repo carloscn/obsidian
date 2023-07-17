@@ -134,7 +134,44 @@ __DSB(); // Data Synchronization Barrier to ensure all
 
 中断表大小 (75 + 16) x 4 = 364 (0x16c)。向上round_up到512bytes。因此向量表的基地址可以是 0, 0x200, 0x400。
 
-### 2.4.3 bootloader和vector关系
+### 2.4.3 中断向量表
+
+中断向量表的实现在`startup_*.s`中：
+
+```Assembly
+  .section .isr_vector,"a",%progbits
+  .type g_pfnVectors, %object
+  .size g_pfnVectors, .-g_pfnVectors
+
+g_pfnVectors:
+  .word _estack                 /* MSP value */
+  .word Reset_Handler           /* Reset routine */
+  .word NMI_Handler             /* No-Maskable Interrupt */
+  .word HardFault_Handler       /* System faults */
+  .word MemManage_Handler       /* Memory access issues */
+  .word BusFault_Handler        /* Bus access issues */
+  .word UsageFault_Handler      /* Instruction/State issues */
+  .word 0
+  .word 0
+  .word 0
+  .word 0
+  .word SVC_Handler             /* System Service Call */
+  .word DebugMon_Handler        /* Serial Wire Debug */
+  .word 0
+  .word PendSV_Handler          /* Context Switching */
+  .word SysTick_Handler         /* System Timer */
+  .word WWDG_IRQHandler         /* Window Watchdog interrupt */
+  .word PVD_IRQHandler          /* EXTI Line 16 interrupt / PVD through EXTI */
+  ...
+```
+
+For convention，CortexM的中断向量表起始地址放在0x00000000地址上。 如果中断向量表放在了flash内存上面，这个地址被映射到`0x08000000`地址上。ARM使用alias方式，将`0x08000000`地址映射到0地址上面。这部分参考：[03_ARMv7-M_存储系统结构](https://github.com/carloscn/blog/issues/124#top)
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202306060839041.png)
+
+
+
+### 2.4.4 bootloader和vector关系
 
 在一些控制器中会有很多的程序存储空间，例如bootROM和flash。很多程序都会从bootROM启动。当控制器启动之后，会执行bootROM中的程序，执行完毕之后会branch到用户的应用程序。如图所示Vector table relocation in devices with boot ROM and user flash memory
 
@@ -153,7 +190,7 @@ https://developer.arm.com/documentation/dui0056/d/handling-processor-exceptions/
 
 processor mode需要在reset handler里面做更改的。
 
-### 2.4.4 Load Ram和Vector关系
+### 2.4.5 Load Ram和Vector关系
 
 一些处理器，程序会被从外部内存（SD卡，甚至是网络）拷贝到RAM执行。在这种情况下，bootloader程序还要初始化这些外部内存。
 
@@ -295,14 +332,228 @@ Cortex-M的异常处理，相比于ARMv8比较简单。 [10_ARMv8_异常处理�
 
 ### 2.7.1 NVIC寄存器
 
+NVIC上有很多的寄存器用于控制中断。这些寄存器位于SCS地址范围内。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202306060856674.png" width="80%" /></div> 
+
+这些所有的寄存器，包括Software Trigger Interrupt Register (STIR) 只能在特权模式下进行访问。注意，STIR有个特例，就是可以被配置成为不需要要特权访问。默认状态下，一个系统复位之后：
+
+* 所有的中断都会被禁止
+* 所有的中断拥有最高中断优先级(0)
+* 所有的中断pending statuses都被清除掉
+
 ### 2.7.2 SCB寄存器
 
+在CMSIS-Core中除了NVIC数据结构，SCB数据结构也用于控制中断。下图展示了SCB对于中断的控制。
+
+<div align='center'><img src="https://raw.githubusercontent.com/carloscn/images/main/typora202306190858693.png" width="80%" /></div> 
+
+#### 2.7.2.1 ICSR
+
+Interrupt Control and state register，ICSR寄存器能够用程序控制：
+* SysTick，PendSV，NMI清除它们的标志位；
+* 通过读取`VECTACTIVE`来确定当前执行的是什么异常或中断；
+
+此外，ICSR寄存器甚至可以用调试器来修改中断状态。`VECTACTIVE`位等于IPSR。在这个寄存器中，许多域都是为了debugger来决定系统异常的状态。在大多数的情况下， 仅仅pending bits用于应用开发。
+
 ### 2.7.3 特殊寄存器
+
+#### PRIMASK
+
+在很多应用中，你可能需要临时的关闭所有的中断来处理一些时间敏感的任务。这个时候就可以使用`PRIMASK`寄存器来临时性关闭所有的中断。注意，`PRIMASK`寄存器只能在特权状态下访问。
+
+`PRIMASK`寄存器主要是用于屏蔽除了NMI和Hard Fault之外的所有的异常。底层原理就是会让所有的中断的优先级变为0（最高的优先级）。使用C语言编程的时候，我们可以使用CMSIS-Core提供的方法：
+
+```C
+void __enable_irq(); // Clear PRIMASK
+void __disable_irq(); // Set PRIMASK
+void __set_PRIMASK(uint32_t priMask); // Set PRIMASK to value
+uint32_t __get_PRIMASK(void); // Read the PRIMASK value
+```
+
+使用汇编专用的指令：
+
+```Assembly
+CPSIE I ; Clear PRIMASK (Enable interrupts)
+CPSID I ; Set PRIMASK (Disable interrupts)
+```
+
+使用汇编访问特殊寄存器也是可以的：
+
+```Assembly
+MOVS R0, #1
+MSR PRIMASK, R0 ; Write 1 to PRIMASK to disable all
+				; interrupts
+
+MOVS R0, #0
+MSR PRIMASK, R0 ; Write 0 to PRIMASK to allow interrupts
+```
+
+当`PRIMASK`寄存器全部被置位的时候，即便是具体一些的Fault异常使能（内存管理，总线错误等），所有的fault事件都会触发为HardFault异常。
+
+#### FAULTMASK
+
+从行为的角度，FAULTMASK和PRIMASK非常的相似，不同的是所有的异常的优先级都会变为-1。这就导致了，HardFault的 hanlder也会被block。只有NMI异常的handler可以被执行。
+
+从使用的角度，FAULTMASK的目的是为了fault handlers的可配置性（内存管理，总线错误等）。把这些fault的优先级配置为-1的原因是为了handler可能处理一些特殊的情况：
+
+* Bypass MPU
+* 忽略Data Bus Fault
+
+同样的，FAULTMASK的使用，需要在特权模式，但是不可能在NMI和HardFault的handler里面去设定。使用C语言：
+
+```C
+void __enable_fault_irq(void); // Clear FAULTMASK
+void __disable_fault_irq(void); // Set FAULTMASK to disable
+interrupts
+void __set_FAULTMASK(uint32_t faultMask);
+uint32_t __get_FAULTMASK(void);
+```
+
+对于汇编可以使用：
+
+```Assembly
+CPSIE F ; Clear FAULTMASK
+CPSID F ; Set FAULTMASK
+```
+
+使用MSR指令：
+
+```Assembly
+MOVS R0, #1
+MSR FAULTMASK, R0 ; Write 1 to FAULTMASK to disable all
+                  ; interrupts
+MOVS R0, #0
+MSR FAULTMASK, R0 ; Write 0 to FAULTMASK to allow interrupts
+```
+
+FAULTMASK会被自动的清除基于异常handler的退出从NMI handler。这个特性就提供了一个比较有趣的使用方法：如果在一个低优先级异常handler中，我们想要去触发一个更高优先级的handler（除了NMI），但是又向这个高优先级的hanlder开始于低优先级的handler执行完毕，此时我们可以这样：
+
+* 设定FAULTMASK把所有的中断全部都屏蔽（当然不包括NMI中断）
+* 设定更高优先级的中断pending status
+* 退出当前的handler
+
+由于FAULTMASK的设定，被pend的更高优先级的handler是不能被执行的。直到低优先级的handler退出之后，FAULTMASK的设定会被自动清除。此时才会执行高优先级的中断任务。
+
+#### BASEPRI
+
+在一些情况下，你可能只想要屏蔽某一层级以下的中断。这时候BASEPRI派上用场了。为了能够使用BASEPRI，需要把想要masking的中断优先级层级写入到BASEPRI寄存器中。例如，如果你想要屏蔽优先级小于0x60的中断（数值越小的，优先级越高，所以屏蔽的是0x60 - 0xFF）。你可以：
+
+```C
+__set_BASEPRI(0x60); // Disable interrupts with priority
+// 0x60-0xFF using CMSIS-Core function
+
+x = __get_BASEPRI(void); // Read value of BASEPRI
+
+__set_BASEPRI(0x0); // Turn off BASEPRI masking
+```
+
+使用汇编可以：
+
+```Assembly
+MOVS R0, #0x60
+MSR BASEPRI, R0 ; Disable interrupts with priority
+; 0x60-0xFF
+
+MRS R0, BASEPRI ; Read back the value of BASEPRI
+
+MOVS R0, #0x0
+MSR BASEPRI, R0 ; Turn off BASEPRI masking
+```
+
+BASEPRI寄存器也能够使用BASEPRI_MAX寄存器来访问。这个和BASEPRI是等效的。但是我们使用MAX的时候会有一个前提条件，当使用MAX寄存器的时候，处理器硬件自动的比较存储的值和新的值是否一致，只有在新的值和存储值不一致且去更新为更高的优先级的时候才能生效。
+
+例如：
+
+```
+MOVS R0, #0x60
+MSR BASEPRI_MAX, R0 ; Disable interrupts with priority
+; 0x60, 0x61,..., etc
+MOVS R0, #0xF0
+MSR BASEPRI_MAX, R0 ; This write will be ignored because
+; it is lower level than 0x60
+MOVS R0, #0x40
+MSR BASEPRI_MAX, R0 ; This write is allowed and change the
+; masking level to 0x40
+```
+
+为了改为更低的优先级，这个时候需要使用BASEPRI寄存器。
 
 
 ## 2.8 经典案例
 
+在大多数的应用中，启动阶段，包含vector在内的程序都存储在ROM中。如果不要自定义去修改向量表，那么没有必要去重定向vector的地址。所以设定一个中断的步骤：
+
+* 重定向vector的entry地址（如果有必要的话）
+* 设定中断组的优先级（可选），默认都是0。
+* 设定中断的的优先级（可选），默认都是0。
+* 使能在NVIC中的中断；
+
+以下例子是设定中断的例子：
+
+```C
+// Set priority group to 5
+NVIC_SetPriorityGrouping(5);
+// Set Timer0_IRQn priority level to 0xC0 (4 bit priority)
+NVIC_SetPriority(Timer0_IRQn, 0xC); //Shift to 0xC0 by CMSIS function
+// Enable Timer 0 interrupt at NVIC
+NVIC_EnableIRQ(Timer0_IRQn);
+```
+
+默认情况，Vector的entry地址是在0地址。但是有一些稍微复杂的控制器，会由bootrom引导bootloader程序，vector的entry地址会被bootloader重新指定。
+
+还需要注意，如果开启大量的中断嵌套的话，一定要有足够大的stack空间。这是因为，在handler模式下，handler模式主要使用MSP指针，main stack需要有足够的空间来cover最坏（最大嵌套）的情况。
+
+### vector table relocation
+
+在CortexM中我们可以重新指定vector table的入口地址。main函数的调用通常都是在reset这个中断中。我们需要找到reset，然后再找到main。relocation的情况，例如现在的MCU设计，通常有多种存储介质，导致程序存储运行不一定是在同一种介质中，甚至有的还是一套程序在多个存储介质中。例如，BootROM引导Flash中的bootloader，bootloder需要加载程序从flash到SRAM中或者是DRAM中。ARM的存储资源紧凑导致了这个问题。所以对于内存的把握要十分的清晰。
+
+vector relocation的过程大致上如下，以把中断表加载到SRAM中为例：
+* 当系统启动的时候，中断组的优先级默认配置为0；
+* 如果中断向量表需要relocate到SRAM中，那么就需要把向量表实体拷贝到SRAM中；
+* 接着配置`Vector Table Offset Register(VTOR)`寄存器来指定SRAM的地址；
+* 设定新的中断优先级，如果需要的话。
+* 使能中断。
+
+一旦中断向量表被复制到SRAM中，你就可以更新一个异常向量表通过：
+
+```C
+// Macros for word access
+#define HW32_REG(ADDRESS) (*((volatile unsigned long *)(ADDRESS)))
+void new_timer0_handler(void); // New Timer 0 Interrupt Handler
+unsigned int vect_addr;
+// Calculate the address of the exception vector
+// Assumed the interrupt to have the vector replaced is identified by
+// Timer0_IRQn
+vect_addr = SCB->VTOR + ((((int) Timer0_IRQn) + 16) << 2);
+// Update vector to the address of new_timer0_handler()
+HW32_REG(vect_addr) = (unsigned int) new_timer0_handler;
+```
+
+
 ## 2.9 软中断
+
+你也可以触发中断和异常使用编程的方法。使用最多的也就是在多任务的（RTOS）环境下，一个应用程序可以运行在非特权状态可以访问系统资源。申请不同的异常种类或者中断，不同的资源可以被访问。
+
+如果你想要去触发一个中断（异常种类编号16+），最简单的方法是使用CMSIS-Core的函数：`NVIC_SetPendingIRQ`。
+
+```C
+NVIC_SetPendingIRQ(Timer0_IRQn);
+// Timer0_IRQn is an enumeration defined in device-specific header
+```
+
+以上是设定中断的pending状态，并且触发中断（中断开关打开 + 中断优先级高于当前）。需要注意的是，这个可能需要几个时钟周期的延迟。如果你想要你的中断handler在下一个操作之前执行，你可能需要去就需要插入一个内存屏障指令：
+
+```C
+NVIC_SetPendingIRQ(Timer0_IRQn);
+__DSB(); // Ensure transfer is completed
+__ISB(); // Ensure side effect of the write is visible
+```
+
+那么CMSIS_Core的中断函数的内部是这怎么处理的呢？访问Interrupt Set Pending Register或Software Trigger Interrupt Register。
+
+如果你想要触发SVC异常，你需要去执行SVC的指令。这部分的C是编译器的内联完成的。对于一些系统的异常像是NMI，PendSV和SysTick，你能够触发他们通过设定Interrupt Control and State Register （ICSR） 来完成。同样的触发这些，无法保证立刻执行。这就意味着系统异常是fault异常并且不能被当做软件中断。
+
 
 ## 2.10 注意事项
 
