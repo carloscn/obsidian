@@ -1,4 +1,5 @@
 在 [[LS104x] 使用ostree更新rootfs](https://github.com/carloscn/blog/issues/194#top) 中我们在ramdisk中使用ostree的checkout功能还原出一个完整版本rootfs，但是这个方法并没有完全彻底的使用ostree的部署功能。本节将要总结和整理一个ostree的部署功能。类似于该demo：[YOUTUBE - Designing OSTree based embedded Linux systems with the Yocto Project](https://www.youtube.com/watch?v=3i48NbAS2jUube)
+在 [[LS104x] 使用ostree更新rootfs](https://github.com/carloscn/blog/issues/194#top) 中我们在ramdisk中使用ostree的checkout功能还原出一个完整版本rootfs，但是这个方法并没有完全彻底的使用ostree的部署功能。本节将要总结和整理一个ostree的部署功能。类似于该demo：[YOUTUBE - Designing OSTree based embedded Linux systems with the Yocto Project](https://www.youtube.com/watch?v=3i48NbAS2jUube)
 
 从ubuntu更新为busybox，更新原理如图所示：
 
@@ -140,7 +141,119 @@ upgrade：
 
 之后可以通过一些脚本，在部署完成之后，拿到rootfs的地址，然后在ramdisk里面配合一些脚本解析进行切换。
 
+### 2.2.4 ramdisk脚本
 
+``` bash
+#!/bin/sh
+#
+# Copyright 2018 NXP
+#
+# SPDX-License-Identifier:      BSD-3-Clause
+#
 
+# mount the /proc and /sys filesystems.
+/bin/mount -n -t proc none /proc
+/bin/mount -n -t sysfs none /sys
 
+a=`/bin/cat /proc/cmdline`
+
+# Mount the root filesystem.
+if ! echo $a | /bin/grep -q 'mount=' ; then
+    # set default mount device if mountdev is not set in othbootargs env
+    mountdev=mmcblk0p3
+    # echo Using default mountdev: $mountdev
+else
+    mountdev=`echo $a | /bin/sed -r 's/.*(mount=[^ ]+) .*/\1/'`
+    echo Using specified mountdev: $mountdev
+fi
+
+partnum=`echo $mountdev | /usr/bin/awk '{print substr($0,length())}'`
+echo partnum: $partnum
+
+MOUNT_P=/new_root
+MOUNT_R=/mnt
+mkdir ${MOUNT_P}
+
+/bin/mknod /dev/$mountdev b 179 $partnum && /bin/mount -o rw /dev/$mountdev ${MOUNT_P}
+if [ $? -ne 0 ];then
+    echo "[INFO] mount sd card failed! reboot device!"
+    reboot
+    exit 0
+fi
+
+ls ${MOUNT_P} && ls ${MOUNT_P}/etc > /dev/null
+if [ $? -ne 0 ];then
+    echo "[INFO] No ${MOUNT_P} or ${MOUNT_P}/etc directory!! reboot device!"
+    reboot
+    exit 0
+fi
+
+ls ${MOUNT_P}/update
+if [ $? -ne 0 ];then
+    echo "[INFO] current is NXP busybox (primary image), switch to ubuntu (recovery)"
+    ROOTFS_DIR="${MOUNT_P}"
+else
+    echo "[INFO] current is ubuntu (recovery image), update and switch to primary!"
+    cd ${MOUNT_P}
+    ROOTFS_PATH="${MOUNT_P}/sysroot/ostree/deploy/tcu/deploy"
+    OSTREE_NEWEST_COMMIT=`ostree admin --sysroot=sysroot status | grep tcu | head -n1 | sed 's/tcu //g' | tr -d ' '`
+    ROOTFS_DIR="${ROOTFS_PATH}/${OSTREE_NEWEST_COMMIT}"
+    echo "[INFO] The rootfs real directory is : ${ROOTFS_DIR}"
+    ls ${ROOTFS_DIR}
+    if [ $? -ne 0 ];then
+        echo "[INFO] no rootfs! Go to recovery!"
+        ROOTFS_DIR="${MOUNT_P}"
+    else
+        echo "[INFO] found a new rootfs!"
+
+    fi
+fi
+
+# switch_root will fail to function if newroot is not the root of a
+# mount. If you want to switch root into a directory that does not
+# meet this requirement then you can first use a bind-mounting
+# trick to turn any directory into a mount point:
+#       mount --bind $DIR $DIR
+/bin/mount --bind ${ROOTFS_DIR} ${MOUNT_R}
+echo "[INFO] mount move proc sys directories."
+/bin/mount -o move /proc ${MOUNT_R}/proc
+/bin/mount -o move /sys ${MOUNT_R}/sys
+
+echo "[INFO] exec /bin/busybox switch_root ${MOUNT_R} /sbin/init"
+sleep 1
+exec /bin/busybox switch_root ${MOUNT_R} /sbin/init </dev/console >dev/console 2>&1
+
+```
+
+需要注意的是，这里有个非常关键的一点，就是使用switch_root来切换rootfs路径问题。由于ostree部署的路径是ramdisk挂载sd卡中子目录，并没有挂载到root（根）上面的路径。这个在switch_root的新版本中是不被允许的。参考：https://man7.org/linux/man-pages/man8/switch_root.8.html 中的note，
+
+> **switch_root** will fail to function if _newroot_ is not the root of a
+       mount. If you want to switch root into a directory that does not
+       meet this requirement then you can first use a bind-mounting
+       trick to turn any directory into a mount point.
+
+如果用了sd卡基于挂载点的子目录，就会有如下错误：
+```console
+[    4.978901] Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+[    4.986556] CPU: 2 PID: 1 Comm: busybox Not tainted 5.10.35 #1
+[    4.992381] Hardware name: LS1046A RDB Board (DT)
+[    4.997077] Call trace:
+[    4.999522]  dump_backtrace+0x0/0x1a8
+[    5.003176]  show_stack+0x18/0x68
+[    5.006485]  dump_stack+0xd0/0x12c
+[    5.009879]  panic+0x16c/0x334
+[    5.012924]  do_exit+0x9ec/0xa08
+[    5.016143]  do_group_exit+0x44/0xa0
+[    5.019709]  __wake_up_parent+0x0/0x30
+[    5.023451]  el0_svc_common.constprop.0+0x78/0x1a0
+[    5.028233]  do_el0_svc+0x24/0x90
+[    5.031540]  el0_svc+0x14/0x20
+[    5.034584]  el0_sync_handler+0xb0/0xb8
+[    5.038411]  el0_sync+0x178/0x180
+[    5.041719] SMP: stopping secondary CPUs
+[    5.045635] Kernel Offset: disabled
+[    5.049114] CPU features: 0x0240022,21002000
+[    5.053374] Memory Limit: none
+[    5.056423] ---[ end Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100 ]---
+```
 
