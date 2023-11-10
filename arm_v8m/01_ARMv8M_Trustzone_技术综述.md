@@ -1,5 +1,9 @@
 
-# 1. 概述
+本文不涉及Trustzone的技术实现，根据Trustzone的设计讲述Trustzone的技术背景、技术概述和技术应用。
+
+在Trustzone的技术背景中，我们阐述为什么要使用Trustzone技术；在技术概述中主要讲述Trustzone最基本的设计模型以及和Cortex-A的Trustzone的异同；技术应用中主要讲述基于Trustzone我们能做什么丰富的应用。
+
+# 1. Trustzone技术背景
 
 如果你是关心安全的开发者，我相信拿到armv8-m的架构肯定会问，armv8-m从芯片层级考虑安全的话，肯定首要是trustzone的技术，那么armv8-m的trustzone技术到底怎么考察安全性：
 
@@ -57,9 +61,7 @@ ARM TrustZone设计中，检测SG（Secure Gateway）指令没有被滥用是通
 "Faking of a return address when calling a Secure API" 意味着当在调用一个安全API（Application Programming Interface，应用程序编程接口）时，存在可能伪造返回地址的风险。这个问题涉及到在ARM TrustZone环境中的一个安全性问题，通常与栈溢出或函数调用相关。
 
 1. **安全API调用：** 在ARM TrustZone环境中，安全API通常是由安全的代码提供的，用于执行敏感操作或提供受保护的服务。这些API允许非安全环境的代码（Non-Secure World）请求安全环境（Secure World）执行某些操作。
-    
 2. **返回地址：** 在函数调用中，返回地址是在函数调用之后控制流将返回的位置。与ARMv7m一致，ARMv8m中procedure call中返回地址， [02_ARMv7-M_编程模型与模式](https://github.com/carloscn/blog/issues/123) 存储在R14-link register(LR) 寄存器中。而ARMv8m考虑安全问题，**SG指令执行时的返回状态存储：** 当SG指令在执行时，它会将函数的返回状态存储在链接寄存器（Link Register，LR）的最低有效位（Least Significant Bit，LSB）中。这个返回状态通常是一个标志位，用于指示函数是从安全态还是非安全态被调用的。当函数返回时，**系统会检查LR中的最低有效位，以验证函数是否按照预期的状态返回**。这个检查是为了确保Secure API函数（通常是从Non-Secure环境调用的）不会返回到一个伪造的返回地址，该地址指向Secure环境中的代码。
-    
 3. **伪造返回地址：** "Faking of a return address" 意味着攻击者可能尝试伪造或篡改在调用安全API时存储在栈上的返回地址。这可能导致控制流在不受信任的位置上恢复执行，而不是按照正常的执行流程返回到调用者所期望的位置。ARMv8m通过在LR中存储返回状态，并在返回时检查它，系统可以确保Secure API函数不会被诱导返回到一个伪造的地址，该地址可能包含恶意代码或试图绕过TrustZone的安全隔离的代码。
 
 这种设计也是有考虑的，例如x86架构把指令的返回地址要放在栈上，而不是单独弄个寄存器。
@@ -82,7 +84,6 @@ ARMv7架构没有FNC_RETURN机制，这部分是ARMv8-M新引入的机制。
 "Attempting to switch to the Secure side using FNC_RETURN (function return code)" 意味着尝试使用FNC_RETURN（函数返回代码）来切换到安全环境的行为。这个问题涉及到ARM TrustZone中的一个安全性问题，其中FNC_RETURN通常用于函数返回并控制执行流。
 
 1. **FNC_RETURN（函数返回代码）：** FNC_RETURN通常是一个用于在函数返回时设置返回状态的代码或值。它指示函数应该如何返回，并在返回后控制执行流。
-    
 2. **尝试切换到安全环境：** "Attempting to switch to the Secure side" 意味着在函数返回时，有尝试将执行流从非安全态（Non-Secure World）切换到安全态（Secure World）的行为。这通常是通过函数返回的方式来实现的，以控制执行流程。
 
 ```C
@@ -107,7 +108,6 @@ ARMv7架构原本就有EXC_RETURN这个机制，是异常返回后的地址信�
 "Faking of EXC_RETURN (exception return code) to return to Secure state illegally" 意味着尝试伪造EXC_RETURN（异常返回代码）以非法返回到安全状态。这个问题涉及到ARM TrustZone中的一个安全性问题，其中EXC_RETURN通常用于控制从异常处理程序返回到不同的执行状态。
 
 1. **EXC_RETURN（异常返回代码）：** EXC_RETURN是一个特殊的值，通常在异常处理程序中使用，以指示异常处理程序应该如何返回到不同的执行状态。这个值包括信息，例如返回到异常处理程序的地址、控制模式和堆栈状态等。
-    
 2. **非法返回到安全状态：** "return to Secure state illegally" 意味着尝试从非安全状态返回到安全状态，而这个操作是未经授权的或非法的。在ARM TrustZone中，安全状态和非安全状态应该受到明确的控制和隔离，不应该随意切换或返回。
     
 这个问题可能涉及到尝试滥用EXC_RETURN值以非法方式返回到安全状态的情况，而这可能导致绕过TrustZone的安全隔离，从而引发安全风险。
@@ -115,11 +115,8 @@ ARMv7架构原本就有EXC_RETURN这个机制，是异常返回后的地址信�
 为了防止这种问题，ARM TrustZone通常实施了硬件和软件的安全措施：
 
 1. **非安全中断的发生：** 当安全代码正在执行时，如果发生了一个非安全中断，处理器会自动将一个签名值（signature value）添加到当前的安全栈帧中。
-    
 2. **安全栈帧签名：** 这个签名值是一个安全栈帧的一部分，用于标识栈帧是否已被修改或干扰。签名值的生成通常基于栈帧的内容，包括返回地址和其他关键信息。
-    
 3. **异常返回时的签名检查：** 当非安全软件试图使用异常返回（exception return）指令来切换到安全环境时，处理器会执行签名检查。它将检查安全栈帧中的签名值是否与栈帧内容一致，以确保栈帧未被篡改。
-    
 4. **检测非法切换：** 如果签名检查失败，即签名值与栈帧内容不匹配，处理器将检测到非法切换尝试，因为非安全软件试图非法切换到安全环境。这将触发错误处理或其他相应的安全措施。
     
 总之，这个机制通过在非安全中断期间添加签名值到安全栈帧，并在异常返回时执行签名检查，帮助检测非安全软件试图非法切换到安全环境的行为。这有助于维护ARM TrustZone的安全性，确保只有受信任的代码能够执行和返回到安全环境。
@@ -136,15 +133,76 @@ ARMv7架构原本就有EXC_RETURN这个机制，是异常返回后的地址信�
 2. **潜在的安全风险：** 如果堆栈溢出覆盖了存储在堆栈上的关键数据，可能会导致潜在的安全风险，如信息泄露、远程代码执行或拒绝服务攻击。
 3. **绕过安全隔离：** 在安全架构中，堆栈溢出可能被攻击者用来绕过安全隔离，使得恶意代码能够进入安全环境。
 
-关于ARMv8-M主流和基线子配置中的Secure堆栈指针的堆栈限制特性，以及对于堆栈溢出的处理。
-
-具体来说：
+关于ARMv8-M主流和基线子配置中的Secure堆栈指针的堆栈限制特性，以及对于堆栈溢出的处理。具体来说：
 
 1. **Secure堆栈指针的堆栈限制：** 在ARMv8-M主流和基线子配置中，实施了针对Secure堆栈指针的堆栈限制特性。这意味着系统可以检测和处理Secure堆栈的溢出情况。当Secure堆栈达到其限制时，会引发堆栈溢出异常。
-    
 2. **异常处理程序：** 当堆栈溢出异常发生时，异常处理程序会被触发，以确保适当的处理。这可能包括记录异常、中断执行流程并采取必要的纠正措施，以维护系统的安全性。
-    
 3. **调试方面的安全性：** 这段描述还提到了在调试方面处理安全性要求。这可能包括确保调试工具和过程不会威胁系统的安全性，或者确保调试过程受到适当的安全控制和监控。
 
+# 2. Trustzone技术概述
 
-*  [^1]:[从Cortex-M33内核认识TrustZone](https://www.stmcu.com.cn/ecosystem/chip/chipfamily-STM32L5)
+Trustzone对于ARMv8m是一个可选的安全扩展。从应用角度，trustzone并不是一个新东西，和cortex-a中trustzone目的和作用是一致的。在和A核的trustzone设计上一样，处理器有安全和非安全两种状态，非安全的状态仅可以访问非安全的内存，而安全状态具有最高权限，无论是安全还是非安全的内存都可以访问。
+
+相比于ARMv8-A的Trustzone，ARMv8-M TrustZone技术针对ARMv8-M架构设计，考虑了小型、能效高的系统的需求。这意味着TrustZone技术在设计上注重在能耗较低的嵌入式系统中实现安全性，以满足各种小型设备和资源有限的应用场景的需求。
+
+在ARM Cortex-A处理器中，TrustZone技术使用内存映射方式来实现Secure和Normal两个世界的分割。这意味着在内存映射中存在Secure世界和Normal世界的不同地址空间，用于存储相应的数据和代码。这种方式允许对两个世界进行物理分割，从而实现安全隔离；在Cortex-A处理器中，当发生异常时，如中断或陷阱，TrustZone技术会自动进行Secure和Normal两个世界之间的切换。这意味着当从Normal世界进入Secure世界或反之时，处理器会自动调用相应的异常处理代码，而不需要显式的切换指令。
+
+这种方式与ARMv8-M架构中的TrustZone技术有所不同，后者通常使用特殊的指令（SG）来执行Secure和Non-Secure之间的切换，而不依赖于内存映射方式。
+
+而且在M核心中，在执行安全函数（Secure function）时，**仍然可以为非安全中断（Non-secure interrupts）提供服务。这意味着当处理器处于安全执行状态时，它仍然能够响应和处理非安全中断，确保系统的可靠性和响应性**。这一特性对于ARM TrustZone技术的实际应用非常重要，因为它允许系统在执行安全操作的同时，仍然能够处理来自非安全环境的中断请求。在许多微控制器应用中，实时处理、确定性行为和低中断延迟是重要的要求。这对于确保系统**实时性**至关重要。安全操作可以包括处理安全数据、密钥管理、加密和其他关键的安全任务，而非安全中断可能包括用户应用程序的请求、外部设备的事件等。
+
+ARMv8-M架构引入了一种机制，允许在安全状态（Secure state）和非安全状态（Non-secure state）之间共享寄存器组。这种机制的好处在于能够实现更高的功耗效率，使得ARMv8-M实现的功耗水平接近较早版本的ARM架构，如ARMv6-M和ARMv7-M。
+
+由于ARMv8-M架构中状态切换的低开销，Secure（安全）和Non-secure（非安全）软件能够频繁地进行互动。这在一些应用场景中非常常见，特别是当安全固件包含了软件库，如图形用户界面（GUI）固件或通信协议栈。在这些情况下，状态切换的低开销非常重要，因为它允许安全和非安全软件之间快速切换和互动，同时保持系统的安全性。这有助于实现复杂的功能，如图形界面和通信，而不会引入过多的性能开销。
+
+ARMv8-M的安全、非安全以及Thread和Handler模式是正交（orthogonal）的关系。（v8架构中Thread模式也有特权和非特权模式）。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202311101417975.png)
+
+Trustzone被启动的时候，系统默认上电就是安全状态，而Trustzone被禁止之后，系统就处于非安全状态。ARM trustzone在芯片层级也没有办法大包大揽， 例如对于加解密算法就无法支持。
+
+在ARM trustzone中，以下模块起到至关重要的作用：
+
+* Secure Boot Loader
+* Secret keys
+* Flash programming support
+* High value assets
+
+Secure (Trusted) and Non-secure (Non-trusted) 程序互相配合进行工作，Non-secure应用不可以直接访问划分为安全属性的资源。如果想要访问则需要通过特定的API进行访问。因此，在API统筹以及使用，可以在上层应用中增加认证、许可等逻辑。
+
+
+# 3. Trustzone技术应用
+
+有很多的安全应用可以依赖TrustZone技术，这一节只是列举一些经典应用可以考虑和Trustzone结合。
+
+* 通信保护
+* 数据保护
+* 固件保护
+* 操作保护
+* 防篡改保护 (Tamper)
+* Secure Boot
+
+由于TrustZone技术是ARMv8-M芯片唯一的安全屏障Trustzone没有办法满足所有的安全需求，因此就需要和其他软件或者硬件安全机制互相配合。例如：
+
+**通信保护机制**中需要大量的加解密算法，而trustzone并无法直接提供这些算法。因此可以使用硬件或者软件的两种手段。使用硬件对加解密加速可以直接把硬件的处理和安全总线进行连接，让整个硬件模块都处于安全环境；使用软件则可以把通信协议栈以及加解密算法库放入安全控件。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202311101431276.png)
+
+很多微控制器已经内置了USB和Bluetooth的硬件协议栈，Trustzone技术可以防止一些攻击通过Secure API调用的中间层绕过检查。
+
+**对于IoT的设备**，TrustZone技术也可以与用于先进微控制器的附加保护功能一起使用，以满足下一代物联网（IoT）产品的需求。例如，为物联网应用开发的微控制器可以包含一系列安全功能。
+
+在物联网应用中，安全性是至关重要的，因为这些设备可能涉及到敏感数据、远程通信以及与其他设备的交互。以下是TrustZone技术与物联网微控制器安全功能结合使用的一些示例：
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202311101437065.png)
+
+* 阻止不可信应用直接访问安全敏感资源；
+* 确保刷入的固件是被检查的；
+* 防止逆向工程；
+* 在软件层存储敏感数据。
+
+**无线通信设备**， 在其他应用场景中，例如具有经过认证的内置无线协议栈的无线系统芯片（SoC），TrustZone技术可以保护标准化的操作，如无线通信行为。
+
+![](https://raw.githubusercontent.com/carloscn/images/main/typora202311101440847.png)
+
+[^1]:[从Cortex-M33内核认识TrustZone](https://www.stmcu.com.cn/ecosystem/chip/chipfamily-STM32L5)
